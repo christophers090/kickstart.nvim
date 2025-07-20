@@ -7,11 +7,9 @@ vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
-vim.keymap.set('n', '<leader>ca', ':Augment chat<CR>', { desc = 'Augment chat' })
-vim.keymap.set('n', '<leader>cta', ':Augment chat-toggle<CR>', { desc = 'Augment chat' })
-vim.keymap.set('n', '<leader>cna', ':Augment chat-new<CR>', { desc = 'Augment chat' })
-vim.keymap.set('n', '<leader>z', ':ZenMode <CR>', { desc = 'Augment chat' })
-vim.keymap.set('n', '<leader>tm', ':terminal <CR>', { desc = 'Augment chat' })
+vim.keymap.set('n', '<leader>z', ':ZenMode <CR>', { desc = 'Toggle ZenMode' })
+vim.keymap.set('n', '<leader>tm', ':terminal <CR>', { desc = 'Open terminal' })
+vim.keymap.set('n', '<leader>ca', ':CodeCompanion', { desc = 'Open a chat' })
 
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which

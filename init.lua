@@ -11,9 +11,6 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
   end
 end
 
-vim.g.augment_workspace_folders = { '~/.config/nvim' }
-vim.g.augment_chat_panel_position = 'left'
-
 ---@type vim.Option
 local rtp = vim.opt.rtp
 rtp:prepend(lazypath)

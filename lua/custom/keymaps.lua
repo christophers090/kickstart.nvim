@@ -1,3 +1,4 @@
+-- Set the leader keys for custom keybindings
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
@@ -33,3 +34,10 @@ vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left wind
 vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+
+-- Format On Save
+vim.keymap.set('n', '<leader>fj', vim.lsp.buf.format, { desc = 'Format buffer' })
+
+-- C++ specific functions
+local cpp = require('custom.functions.cpp')
+vim.keymap.set('n', '<leader>ui', cpp.toggle_header_impl, { desc = 'Toggle header/implementation' })

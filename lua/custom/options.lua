@@ -1,6 +1,9 @@
 -- Set to true if you have a Nerd Font installed and selected in the terminal
 vim.g.have_nerd_font = true
 
+-- Set python3 provider path
+vim.g.python3_host_prog = '/usr/bin/python3'
+
 -- [[ Setting options ]]
 -- See `:help vim.o`
 -- NOTE: You can change these options as you wish!
@@ -12,8 +15,8 @@ vim.o.number = true
 --  Experiment for yourself to see if you like it!
 vim.o.relativenumber = true
 
--- Enable mouse mode, can be useful for resizing splits for example!
--- vim.o.mouse = 'a'
+-- Disable mouse
+vim.o.mouse = ''
 
 -- Don't show the mode, since it's already in the status line
 vim.o.showmode = false

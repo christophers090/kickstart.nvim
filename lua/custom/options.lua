@@ -84,3 +84,13 @@ vim.api.nvim_create_autocmd('TextYankPost', {
     vim.hl.on_yank()
   end,
 })
+
+-- Force relative line numbers everywhere
+vim.api.nvim_create_autocmd({ 'BufEnter', 'BufWinEnter', 'WinEnter', 'TermOpen' }, {
+  desc = 'Enable relative line numbers everywhere',
+  group = vim.api.nvim_create_augroup('force-relative-numbers', { clear = true }),
+  callback = function()
+    vim.wo.number = true
+    vim.wo.relativenumber = true
+  end,
+})

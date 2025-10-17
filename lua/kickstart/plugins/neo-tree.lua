@@ -14,11 +14,37 @@ return {
     { '\\', ':Neotree reveal<CR>', desc = 'NeoTree reveal', silent = true },
   },
   opts = {
+    enable_git_status = true,
+    enable_diagnostics = true,
     filesystem = {
       window = {
+        position = 'left',
+        width = 40,
         mappings = {
           ['\\'] = 'close_window',
+          ['<leader>a'] = function(state)
+            local node = state.tree:get_node()
+            if node.type == 'file' then
+              -- Open the file first
+              vim.cmd('edit ' .. node.path)
+              -- Add to harpoon
+              require('harpoon'):list():add()
+            end
+          end,
         },
+      },
+    },
+    window = {
+      mappings = {
+        ['\\'] = 'close_window',
+      },
+    },
+    event_handlers = {
+      {
+        event = 'neo_tree_buffer_enter',
+        handler = function()
+          vim.cmd('setlocal relativenumber')
+        end,
       },
     },
   },

@@ -5,9 +5,18 @@ vim.g.maplocalleader = ' '
 -- Make :Q quit all windows
 vim.cmd('command! Q qa')
 
+-- Make :G run git commands
+vim.cmd('command! -nargs=+ G !git <args>')
+
 vim.keymap.set('n', '<leader>pv', vim.cmd.Ex)
 
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
+
+-- Reverse { and } for paragraph/block movement
+vim.keymap.set('n', '}', '{', { desc = 'Move up a block' })
+vim.keymap.set('n', '{', '}', { desc = 'Move down a block' })
+vim.keymap.set('v', '}', '{', { desc = 'Move up a block' })
+vim.keymap.set('v', '{', '}', { desc = 'Move down a block' })
 
 -- Disable scroll wheel
 vim.keymap.set('', '<ScrollWheelUp>', '<Nop>')
@@ -85,13 +94,10 @@ vim.keymap.set('n', '<leader>bg', bazel.refresh_compile_commands, { desc = '[B]a
 vim.keymap.set('n', '<leader>uo', bazel.open_build_file, { desc = 'Open BUILD.bazel file' })
 
 -- LSP
-vim.keymap.set('n', '<leader>gd', vim.lsp.buf.definition, { desc = 'Go to deff' })
-vim.keymap.set('n', '<leader>fj', function()
+vim.keymap.set('n', '<leader>ch', vim.lsp.buf.hover, { desc = '[C]ode [H]over documentation' })
+vim.keymap.set('n', '<leader>cf', function()
   require('conform').format({ async = true, lsp_format = 'fallback' })
-end, { desc = 'Format buffer' })
-vim.keymap.set('n', '<leader>ge', vim.lsp.buf.references, { desc = 'Show references' })
-vim.keymap.set('n', '<leader>gi', vim.lsp.buf.implementation, { desc = 'Go to implementation' })
-vim.keymap.set('n', '<leader>gh', vim.lsp.buf.hover, { desc = 'Hover documentation' })
+end, { desc = '[C]ode [F]ormat buffer' })
 
 -- Telescope
 local new_file = require 'custom.functions.new_file'
@@ -112,3 +118,99 @@ vim.keymap.set('n', 'sp', function()
     search_dirs = { buf_dir, parent_dir },
   })
 end, { desc = 'Search files in buffer dir and parent (Telescope)' })
+
+-- Spectre keymaps
+vim.keymap.set('n', '<leader>ir', function()
+  local current_dir = vim.fn.expand('%:p:h')
+  local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
+  local search_dir = current_dir
+  if parent_dir ~= current_dir and parent_dir ~= '/' then
+    search_dir = parent_dir
+  end
+  require('spectre').open_visual({
+    select_word = true,
+    path = search_dir .. '/**/*.*'
+  })
+end, { desc = 'Replace word in dir and parent' })
+
+vim.keymap.set('n', '<leader>id', function()
+  local current_dir = vim.fn.expand('%:p:h')
+  require('spectre').open_visual({
+    select_word = true,
+    path = current_dir .. '/**/*.*'
+  })
+end, { desc = 'Replace word in current directory' })
+
+vim.keymap.set('n', '<leader>if', function()
+  require('spectre').open_visual({ select_word = true })
+end, { desc = 'Replace word (global)' })
+
+vim.keymap.set('n', '<leader>iw', function()
+  require('spectre').open_file_search({ select_word = true })
+end, { desc = 'Replace word in current file' })
+
+vim.keymap.set('n', '<leader>in', function()
+  require('spectre').open()
+end, { desc = 'Open spectre (no word)' })
+
+-- Gitsigns keymaps (loaded after gitsigns loads)
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'GitSignsAttach',
+  callback = function(args)
+    local gitsigns = require('gitsigns')
+    local bufnr = args.buf
+    
+    -- Navigation
+    vim.keymap.set('n', ']c', function()
+      if vim.wo.diff then
+        vim.cmd.normal { ']c', bang = true }
+      else
+        gitsigns.nav_hunk('next')
+      end
+    end, { buffer = bufnr, desc = 'Jump to next git change' })
+    
+    vim.keymap.set('n', '[c', function()
+      if vim.wo.diff then
+        vim.cmd.normal { '[c', bang = true }
+      else
+        gitsigns.nav_hunk('prev')
+      end
+    end, { buffer = bufnr, desc = 'Jump to previous git change' })
+    
+    -- Actions
+    vim.keymap.set('n', '<leader>gh', gitsigns.preview_hunk, { buffer = bufnr, desc = 'Git preview hunk' })
+    vim.keymap.set('n', '<leader>gs', gitsigns.stage_hunk, { buffer = bufnr, desc = 'Git stage hunk' })
+    vim.keymap.set('v', '<leader>gs', function()
+      gitsigns.stage_hunk { vim.fn.line('.'), vim.fn.line('v') }
+    end, { buffer = bufnr, desc = 'Git stage hunk' })
+    vim.keymap.set('n', '<leader>gu', gitsigns.undo_stage_hunk, { buffer = bufnr, desc = 'Git unstage hunk' })
+    vim.keymap.set('n', '<leader>gS', gitsigns.stage_buffer, { buffer = bufnr, desc = 'Git stage buffer' })
+    vim.keymap.set('n', '<leader>gr', gitsigns.reset_hunk, { buffer = bufnr, desc = 'Git reset hunk' })
+    vim.keymap.set('v', '<leader>gr', function()
+      gitsigns.reset_hunk { vim.fn.line('.'), vim.fn.line('v') }
+    end, { buffer = bufnr, desc = 'Git reset hunk' })
+    vim.keymap.set('n', '<leader>gR', gitsigns.reset_buffer, { buffer = bufnr, desc = 'Git reset buffer' })
+    vim.keymap.set('n', '<leader>gb', gitsigns.blame_line, { buffer = bufnr, desc = 'Git blame line' })
+    vim.keymap.set('n', '<leader>gd', gitsigns.diffthis, { buffer = bufnr, desc = 'Git diff against index' })
+    vim.keymap.set('n', '<leader>gD', function()
+      gitsigns.diffthis('@')
+    end, { buffer = bufnr, desc = 'Git diff against last commit' })
+    
+    -- Toggles
+    vim.keymap.set('n', '<leader>tb', gitsigns.toggle_current_line_blame, { buffer = bufnr, desc = 'Toggle git blame line' })
+    vim.keymap.set('n', '<leader>td', gitsigns.toggle_deleted, { buffer = bufnr, desc = 'Toggle git deleted' })
+  end,
+})
+
+-- Neogit keymaps
+vim.keymap.set('n', '<leader>ga', '<cmd>Neogit<cr>', { desc = 'Open Neogit' })
+vim.keymap.set('n', '<leader>gc', '<cmd>Neogit commit<cr>', { desc = 'Neogit commit' })
+vim.keymap.set('n', '<leader>gp', '<cmd>Neogit pull<cr>', { desc = 'Neogit pull' })
+vim.keymap.set('n', '<leader>gP', '<cmd>Neogit push<cr>', { desc = 'Neogit push' })
+vim.keymap.set('n', '<leader>gi', function()
+  vim.ui.input({ prompt = 'Rebase onto: ', default = 'HEAD~10' }, function(input)
+    if input and input ~= '' then
+      vim.cmd('G rebase -i ' .. input)
+    end
+  end)
+end, { desc = 'Interactive rebase' })

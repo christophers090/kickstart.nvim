@@ -69,6 +69,39 @@ end, { desc = '[T]erminal [C]ommand builder' })
 -- vim.keymap.set('n', '<up>', '<cmd>echo "Use k to move!!"<CR>')
 -- vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
 
+-- Disable hjkl unless preceded by a count
+vim.keymap.set('n', 'h', function()
+  if vim.v.count == 0 then
+    return ''
+  else
+    return 'h'
+  end
+end, { expr = true, desc = 'Left (only with count)' })
+
+vim.keymap.set('n', 'j', function()
+  if vim.v.count == 0 then
+    return ''
+  else
+    return 'j'
+  end
+end, { expr = true, desc = 'Down (only with count)' })
+
+vim.keymap.set('n', 'k', function()
+  if vim.v.count == 0 then
+    return ''
+  else
+    return 'k'
+  end
+end, { expr = true, desc = 'Up (only with count)' })
+
+vim.keymap.set('n', 'l', function()
+  if vim.v.count == 0 then
+    return ''
+  else
+    return 'l'
+  end
+end, { expr = true, desc = 'Right (only with count)' })
+
 -- Keybinds to make split navigation easier.
 --  Use CTRL+<hjkl> to switch between windows
 --

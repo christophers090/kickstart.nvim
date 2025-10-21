@@ -22,6 +22,7 @@ return {
         width = 40,
         mappings = {
           ['\\'] = 'close_window',
+          ['<tab>'] = 'toggle_node',
           ['<leader>a'] = function(state)
             local node = state.tree:get_node()
             if node.type == 'file' then

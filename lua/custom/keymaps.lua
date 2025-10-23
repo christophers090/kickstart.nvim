@@ -5,6 +5,11 @@ vim.g.maplocalleader = ' '
 -- Make :Q quit all windows
 vim.cmd('command! Q qa')
 
+-- Make :W and :w save files, :WQ/:Wq variations
+vim.cmd('command! W w')
+vim.cmd('command! WQ wqa')
+vim.cmd('command! Wq wq')
+
 -- Make :G run git commands
 vim.cmd('command! -nargs=+ G !git <args>')
 
@@ -27,7 +32,9 @@ vim.keymap.set('', '<ScrollWheelRight>', '<Nop>')
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 vim.keymap.set('n', '<leader>z', ':ZenMode<CR>', { desc = 'Toggle ZenMode' })
-vim.keymap.set('n', '<leader>tm', ':terminal <CR>', { desc = 'Open terminal' })
+vim.keymap.set('n', '<leader>tm', ':terminal<CR>i', { desc = 'Open terminal' })
+vim.keymap.set('n', '<leader>te', ':vsplit | terminal<CR>i', { desc = 'Open terminal in vertical split' })
+vim.keymap.set('n', '<leader>th', ':split | terminal<CR>i', { desc = 'Open terminal in horizontal split' })
 vim.keymap.set('n', '<leader>ca', ':CodeCompanion', { desc = 'Open a chat' })
 
 -- Exit terminal mode with double Esc
@@ -64,47 +71,11 @@ vim.keymap.set('n', '<leader>tc', function()
 end, { desc = '[T]erminal [C]ommand builder' })
 
 -- TIP: Disable arrow keys in normal mode
--- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
--- vim.keymap.set('n', '<right>', '<cmd>echo "Use l to move!!"<CR>')
--- vim.keymap.set('n', '<up>', '<cmd>echo "Use k to move!!"<CR>')
--- vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
+vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
+vim.keymap.set('n', '<right>', '<cmd>echo "Use l to move!!"<CR>')
+vim.keymap.set('n', '<up>', '<cmd>echo "Use k to move!!"<CR>')
+vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
 
--- Disable hjkl unless preceded by a count
-vim.keymap.set('n', 'h', function()
-  if vim.v.count == 0 then
-    return ''
-  else
-    return 'h'
-  end
-end, { expr = true, desc = 'Left (only with count)' })
-
-vim.keymap.set('n', 'j', function()
-  if vim.v.count == 0 then
-    return ''
-  else
-    return 'j'
-  end
-end, { expr = true, desc = 'Down (only with count)' })
-
-vim.keymap.set('n', 'k', function()
-  if vim.v.count == 0 then
-    return ''
-  else
-    return 'k'
-  end
-end, { expr = true, desc = 'Up (only with count)' })
-
-vim.keymap.set('n', 'l', function()
-  if vim.v.count == 0 then
-    return ''
-  else
-    return 'l'
-  end
-end, { expr = true, desc = 'Right (only with count)' })
-
--- Keybinds to make split navigation easier.
---  Use CTRL+<hjkl> to switch between windows
---
 --  See `:help wincmd` for a list of all window commands
 vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left window' })
 vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
@@ -136,21 +107,52 @@ end, { desc = '[C]ode [F]ormat buffer' })
 local new_file = require 'custom.functions.new_file'
 vim.keymap.set('n', '<leader>fn', new_file.create_new_file, { desc = 'Create a new file' })
 
--- Quick file search: current dir only (sj) and with parent (sp)
-vim.keymap.set('n', 'sj', function()
-  local buf_dir = vim.fn.expand('%:p:h')
-  require('telescope.builtin').find_files({
-    search_dirs = { buf_dir },
-  })
-end, { desc = 'Search files in buffer dir (Telescope)' })
+-- Custom grep with glob pattern support
+local telescope_grep = require 'custom.functions.telescope_grep'
+vim.keymap.set('n', '<leader>sg', telescope_grep.live_grep_with_glob, { desc = '[S]earch by [G]rep with glob pattern' })
+vim.keymap.set('n', '<leader>sl', function()
+  local current_dir = vim.fn.expand('%:p:h')
+  telescope_grep.live_grep_with_glob_in_dir(current_dir)
+end, { desc = '[S]earch by grep with glob in current dir ([L]ocal)' })
 
-vim.keymap.set('n', 'sp', function()
-  local buf_dir = vim.fn.expand('%:p:h')
-  local parent_dir = vim.fn.fnamemodify(buf_dir, ':h')
-  require('telescope.builtin').find_files({
-    search_dirs = { buf_dir, parent_dir },
-  })
-end, { desc = 'Search files in buffer dir and parent (Telescope)' })
+-- Quick grep with pre-filled globs
+vim.keymap.set('n', '<leader>sj', function()
+  telescope_grep.live_grep_with_glob('*.*')
+end, { desc = 'Grep with all files glob' })
+
+vim.keymap.set('n', '<leader>sk', function()
+  local current_dir = vim.fn.expand('%:p:h')
+  local dir_name = vim.fn.fnamemodify(current_dir, ':t')
+  telescope_grep.live_grep_with_glob(dir_name .. '/*.*')
+end, { desc = 'Grep in current directory' })
+
+vim.keymap.set('n', '<leader>su', function()
+  local current_dir = vim.fn.expand('%:p:h')
+  local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
+  local parent_name = vim.fn.fnamemodify(parent_dir, ':t')
+  telescope_grep.live_grep_with_glob(parent_name .. '/*.*')
+end, { desc = 'Grep in parent directory' })
+
+-- Prefill with word under cursor (au = all, ak = current dir, au = parent)
+vim.keymap.set('n', '<leader>saj', function()
+  local word = vim.fn.expand('<cword>')
+  telescope_grep.live_grep_with_glob('*.*', word)
+end, { desc = 'Grep word under cursor (all files)' })
+
+vim.keymap.set('n', '<leader>sak', function()
+  local word = vim.fn.expand('<cword>')
+  local current_dir = vim.fn.expand('%:p:h')
+  local dir_name = vim.fn.fnamemodify(current_dir, ':t')
+  telescope_grep.live_grep_with_glob(dir_name .. '/*.*', word)
+end, { desc = 'Grep word in current directory' })
+
+vim.keymap.set('n', '<leader>sau', function()
+  local word = vim.fn.expand('<cword>')
+  local current_dir = vim.fn.expand('%:p:h')
+  local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
+  local parent_name = vim.fn.fnamemodify(parent_dir, ':t')
+  telescope_grep.live_grep_with_glob(parent_name .. '/*.*', word)
+end, { desc = 'Grep word in parent directory' })
 
 -- Spectre keymaps
 vim.keymap.set('n', '<leader>ir', function()

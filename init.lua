@@ -234,21 +234,7 @@ require('lazy').setup({
         builtin.find_files({ cwd = search_dir })
       end, { desc = '[S]earch files in current and pa[R]ent' })
       
-      -- Grep search
-      vim.keymap.set('n', '<leader>sj', builtin.live_grep, { desc = '[S]earch by grep (whole workspace)' })
-      vim.keymap.set('n', '<leader>sk', function()
-        local current_dir = vim.fn.expand('%:p:h')
-        builtin.live_grep({ cwd = current_dir })
-      end, { desc = '[S]earch by grep in current directory' })
-      vim.keymap.set('n', '<leader>su', function()
-        local current_dir = vim.fn.expand('%:p:h')
-        local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
-        local search_dir = current_dir
-        if parent_dir ~= current_dir and parent_dir ~= '/' then
-          search_dir = parent_dir
-        end
-        builtin.live_grep({ cwd = search_dir })
-      end, { desc = '[S]earch by grep in c[U]rrent and parent' })
+      -- Grep search (custom bindings defined in lua/custom/keymaps.lua)
       vim.keymap.set('n', '<leader>so', function()
         require('telescope.builtin').find_files {
           prompt_title = 'Select Directory',

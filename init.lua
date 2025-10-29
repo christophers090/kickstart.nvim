@@ -217,9 +217,12 @@ require('lazy').setup({
 
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
+      local custom_files = require 'custom.functions.telescope_files'
       
       -- File search
-      vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = '[S]earch [F]iles' })
+      vim.keymap.set('n', '<leader>sf', function()
+        custom_files.find_files_with_glob()
+      end, { desc = '[S]earch [F]iles (glob aware: term  glob or just glob)' })
       vim.keymap.set('n', '<leader>sd', function()
         local current_dir = vim.fn.expand('%:p:h')
         builtin.find_files({ cwd = current_dir })
@@ -439,15 +442,8 @@ require('lazy').setup({
             })
           end
 
-          -- The following code creates a keymap to toggle inlay hints in your
-          -- code, if the language server you are using supports them
-          --
-          -- This may be unwanted, since they displace some of your code
-          if client and client_supports_method(client, vim.lsp.protocol.Methods.textDocument_inlayHint, event.buf) then
-            map('<leader>th', function()
-              vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf })
-            end, '[T]oggle Inlay [H]ints')
-          end
+          -- Inlay hints toggle removed to avoid conflict with <leader>th terminal binding
+          -- You can toggle inlay hints with :lua vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
         end,
       })
 
@@ -592,18 +588,10 @@ require('lazy').setup({
     opts = {
       notify_on_error = false,
       format_on_save = function(bufnr)
-        -- Disable "format_on_save lsp_fallback" for languages that don't
-        -- have a well standardized coding style. You can add additional
-        -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true }
-        if disable_filetypes[vim.bo[bufnr].filetype] then
-          return nil
-        else
-          return {
-            timeout_ms = 500,
-            lsp_format = 'fallback',
-          }
-        end
+        return {
+          timeout_ms = 500,
+          lsp_format = 'fallback',
+        }
       end,
       formatters_by_ft = {
         lua = { 'stylua' },

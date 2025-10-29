@@ -15,3 +15,12 @@ vim.api.nvim_create_autocmd('TermLeave', {
   end,
 })
 
+
+-- Automatically enter insert mode when focusing a terminal buffer or opening one
+vim.api.nvim_create_autocmd({ 'BufEnter', 'TermOpen' }, {
+  pattern = { 'term://*' },
+  callback = function()
+    vim.cmd('startinsert')
+  end,
+})
+

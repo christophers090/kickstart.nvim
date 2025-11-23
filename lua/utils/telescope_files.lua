@@ -20,6 +20,21 @@ local function parse_prompt_for_files(prompt)
   return vim.trim(prompt), nil
 end
 
+-- Normalize globs to be recursive like grep (prefix with "**/" unless already present)
+local function add_recursive_prefix(glob)
+  if not glob or glob == '' then return nil end
+  glob = vim.trim(glob)
+  local is_negated = false
+  if glob:sub(1, 1) == '!' then
+    is_negated = true
+    glob = vim.trim(glob:sub(2))
+  end
+  if is_negated then
+    glob = '!' .. glob
+  end
+  return glob
+end
+
 local function make_rg_files_finder(make_entry, glob_pattern, cwd)
   return require('telescope.finders').new_job(function(search)
     local args = {
@@ -28,9 +43,10 @@ local function make_rg_files_finder(make_entry, glob_pattern, cwd)
       '--hidden',
       '--color=never',
     }
-    if glob_pattern and glob_pattern ~= '' then
+    local normalized_glob = add_recursive_prefix(glob_pattern)
+    if normalized_glob and normalized_glob ~= '' then
       table.insert(args, '-g')
-      table.insert(args, glob_pattern)
+      table.insert(args, normalized_glob)
     end
     if cwd and cwd ~= '' then
       table.insert(args, cwd)
@@ -56,6 +72,14 @@ function M.find_files_with_glob(default_glob, default_term, cwd)
       default_text = (default_term and default_glob) and (default_term .. '  ' .. default_glob)
         or (default_glob and ('  ' .. default_glob))
         or (default_term or nil),
+      attach_mappings = function(prompt_bufnr, map)
+        if default_glob and not default_term then
+          vim.defer_fn(function()
+            vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Home>', true, false, true), 'n', false)
+          end, 20)
+        end
+        return true
+      end,
       on_input_filter_cb = function(prompt)
         local term, glob = parse_prompt_for_files(prompt)
         if glob ~= current_glob then

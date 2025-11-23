@@ -63,6 +63,13 @@ vim.o.splitbelow = true
 vim.o.list = true
 vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
 
+-- [[ Indentation ]]
+-- Use `guess-indent.nvim` for autodetection, but provide these as defaults:
+vim.o.expandtab = true      -- Use spaces instead of tabs
+vim.o.shiftwidth = 2        -- Size of an indent
+vim.o.tabstop = 2           -- Number of spaces tabs count for
+vim.o.softtabstop = 2       -- Number of spaces inserted for tab in insert mode
+
 -- Preview substitutions live, as you type!
 vim.o.inccommand = 'split'
 
@@ -77,20 +84,3 @@ vim.o.scrolloff = 10
 -- See `:help 'confirm'`
 vim.o.confirm = true
 
-vim.api.nvim_create_autocmd('TextYankPost', {
-  desc = 'Highlight when yanking (copying) text',
-  group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
-  callback = function()
-    vim.hl.on_yank()
-  end,
-})
-
--- Force relative line numbers everywhere
-vim.api.nvim_create_autocmd({ 'BufEnter', 'BufWinEnter', 'WinEnter', 'TermOpen' }, {
-  desc = 'Enable relative line numbers everywhere',
-  group = vim.api.nvim_create_augroup('force-relative-numbers', { clear = true }),
-  callback = function()
-    vim.wo.number = true
-    vim.wo.relativenumber = true
-  end,
-})

@@ -13,7 +13,7 @@ vim.cmd('command! Wq wq')
 -- Make :G run git commands
 vim.cmd('command! -nargs=+ G !git <args>')
 
-vim.keymap.set('n', '<leader>pv', vim.cmd.Ex)
+-- [Removed] <leader>pv file explorer mapping
 
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 -- Ensure % behaves like $ (end of line) across modes and after plugins load
@@ -37,6 +37,51 @@ vim.keymap.set('', '<ScrollWheelUp>', '<Nop>')
 vim.keymap.set('', '<ScrollWheelDown>', '<Nop>')
 vim.keymap.set('', '<ScrollWheelLeft>', '<Nop>')
 vim.keymap.set('', '<ScrollWheelRight>', '<Nop>')
+
+-- Paste behavior: default p/P keep register in Visual mode; <leader>p does replace
+-- In Visual mode, paste without overwriting the unnamed register (restore selection)
+vim.keymap.set('x', 'p', 'pgvy', { desc = 'Paste (keep register)' })
+vim.keymap.set('x', 'P', 'Pgvy', { desc = 'Paste before (keep register)' })
+-- In Visual mode, <leader>p uses the original behavior (paste and replace register)
+vim.keymap.set('x', '<leader>p', function()
+  vim.cmd('normal! p')
+end, { desc = 'Paste (replace register)' })
+
+-- Path copy helpers
+local function copy_to_registers(text, label)
+  if not text or text == '' then
+    vim.notify('No path to copy', vim.log.levels.WARN)
+    return
+  end
+  vim.fn.setreg('"', text)
+  pcall(vim.fn.setreg, '+', text)
+  vim.notify(label .. ': ' .. text)
+end
+
+vim.keymap.set('n', 'yd', function()
+  local dir = vim.fn.expand('%:p:h')
+  if dir == '' then
+    vim.notify('No directory for current buffer', vim.log.levels.WARN)
+    return
+  end
+  local rel = vim.fn.fnamemodify(dir, ':~')
+  copy_to_registers(rel, 'Copied directory')
+end, { desc = 'Yank current file directory (~)' })
+
+vim.keymap.set('n', 'ya', function()
+  local file = vim.fn.expand('%:p')
+  if file == '' then
+    vim.notify('No file path for current buffer', vim.log.levels.WARN)
+    return
+  end
+  local rel = vim.fn.fnamemodify(file, ':~')
+  copy_to_registers(rel, 'Copied file path')
+end, { desc = 'Yank absolute file path (~)' })
+
+vim.keymap.set('n', '<leader>wt', function()
+  local current_theme = vim.g.colors_name or 'default'
+  vim.notify('Current theme: ' .. current_theme, vim.log.levels.INFO)
+end, { desc = 'Show [W]hat [T]heme is active' })
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
@@ -104,14 +149,22 @@ vim.keymap.set('n', '<leader>wh', ':split<CR>', { desc = 'Split horizontally' })
 vim.keymap.set('n', '<leader>wc', ':close<CR>', { desc = 'Close split' })
 vim.keymap.set('n', '<leader>wo', ':only<CR>', { desc = 'Close other splits' })
 
--- C++ specific functions
-local cpp = require 'custom.functions.cpp'
-vim.keymap.set('n', '<leader>ui', cpp.toggle_header_impl, { desc = 'Toggle header/implementation' })
+local cpp = require 'utils.cpp'
+vim.keymap.set('n', '<leader>ui', cpp.open_header_from_context, { desc = 'Open header/impl based on context' })
+vim.keymap.set('n', '<leader>uc', cpp.open_cpp_from_context, { desc = 'Open C++ implementation from context' })
+vim.keymap.set('n', '<leader>ud', cpp.open_idl_from_context, { desc = 'Open *_idl.* from context' })
+vim.keymap.set('n', '<leader>ub', cpp.open_bazel_from_context, { desc = 'Open BUILD(.bazel) from context' })
 
 -- Bazel functions
-local bazel = require 'custom.functions.bazel'
+local bazel = require 'utils.bazel'
 vim.keymap.set('n', '<leader>bg', bazel.refresh_compile_commands, { desc = '[B]azel [G]enerate compile_commands.json' })
 vim.keymap.set('n', '<leader>uf', bazel.open_build_file, { desc = 'Open BUILD.bazel file' })
+vim.keymap.set('n', '<leader>bb', function()
+  bazel.build_current_file_in_terminal('build')
+end, { desc = '[B]azel [B]uild current file target' })
+vim.keymap.set('n', '<leader>br', function()
+  bazel.build_current_file_in_terminal('run')
+end, { desc = '[B]azel [R]un current file target (pasted only)' })
 -- LSP
 vim.keymap.set('n', '<leader>ch', vim.lsp.buf.hover, { desc = '[C]ode [H]over documentation' })
 vim.keymap.set('n', '<leader>cf', function()
@@ -119,12 +172,12 @@ vim.keymap.set('n', '<leader>cf', function()
 end, { desc = '[C]ode [F]ormat buffer' })
 
 -- Telescope
-local new_file = require 'custom.functions.new_file'
+local new_file = require 'utils.new_file'
 vim.keymap.set('n', '<leader>fn', new_file.create_new_file, { desc = 'Create a new file' })
 
 -- Custom grep with glob pattern support
-local telescope_grep = require 'custom.functions.telescope_grep'
-vim.keymap.set('n', '<leader>sg', telescope_grep.live_grep_with_glob, { desc = '[S]earch by [G]rep with glob pattern' })
+local telescope_grep = require 'utils.telescope_grep'
+local telescope_files = require 'utils.telescope_files'
 vim.keymap.set('n', '<leader>sl', function()
   local current_dir = vim.fn.expand('%:p:h')
   telescope_grep.live_grep_with_glob_in_dir(current_dir)
@@ -132,21 +185,23 @@ end, { desc = '[S]earch by grep with glob in current dir ([L]ocal)' })
 
 -- Quick grep with pre-filled globs
 vim.keymap.set('n', '<leader>sj', function()
-  telescope_grep.live_grep_with_glob('*.*')
-end, { desc = 'Grep with all files glob' })
+  telescope_grep.regex_live_grep_with_glob('*.*')
+end, { desc = 'Regex grep with all files glob' })
 
 vim.keymap.set('n', '<leader>sk', function()
   local current_dir = vim.fn.expand('%:p:h')
   local dir_name = vim.fn.fnamemodify(current_dir, ':t')
-  telescope_grep.live_grep_with_glob(dir_name .. '/*.*')
-end, { desc = 'Grep in current directory' })
+  local glob = dir_name ~= '' and ('**/' .. dir_name .. '/*.*') or '**/*.*'
+  telescope_grep.regex_live_grep_with_glob(glob)
+end, { desc = 'Regex grep in current directory (recursive)' })
 
 vim.keymap.set('n', '<leader>su', function()
   local current_dir = vim.fn.expand('%:p:h')
   local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
   local parent_name = vim.fn.fnamemodify(parent_dir, ':t')
-  telescope_grep.live_grep_with_glob(parent_name .. '/*.*')
-end, { desc = 'Grep in parent directory' })
+  local glob = parent_name ~= '' and ('**/' .. parent_name .. '/*.*') or '**/*.*'
+  telescope_grep.regex_live_grep_with_glob(glob)
+end, { desc = 'Regex grep in parent directory' })
 
 -- Utilities to capture search term
 local function get_visual_selection_text()
@@ -170,23 +225,48 @@ end
 -- Prefill with word under cursor or visual selection
 vim.keymap.set({ 'n', 'x' }, '<leader>saj', function()
   local term = get_term_from_mode()
-  telescope_grep.live_grep_with_glob('*.*', term)
-end, { desc = 'Grep term (word/visual) in all files' })
+  telescope_grep.regex_live_grep_with_glob('*.*', term)
+end, { desc = 'Regex grep term (word/visual) in all files' })
 
 vim.keymap.set({ 'n', 'x' }, '<leader>sak', function()
   local term = get_term_from_mode()
   local current_dir = vim.fn.expand('%:p:h')
   local dir_name = vim.fn.fnamemodify(current_dir, ':t')
-  telescope_grep.live_grep_with_glob(dir_name .. '/*.*', term)
-end, { desc = 'Grep term (word/visual) in current dir' })
+  local glob = dir_name ~= '' and ('**/' .. dir_name .. '/*.*') or '**/*.*'
+  telescope_grep.regex_live_grep_with_glob(glob, term)
+end, { desc = 'Regex grep term (word/visual) in current dir (recursive)' })
 
 vim.keymap.set({ 'n', 'x' }, '<leader>sau', function()
   local term = get_term_from_mode()
   local current_dir = vim.fn.expand('%:p:h')
   local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
   local parent_name = vim.fn.fnamemodify(parent_dir, ':t')
-  telescope_grep.live_grep_with_glob(parent_name .. '/*.*', term)
-end, { desc = 'Grep term (word/visual) in parent dir' })
+  local glob = parent_name ~= '' and ('**/' .. parent_name .. '/*.*') or '**/*.*'
+  telescope_grep.regex_live_grep_with_glob(glob, term)
+end, { desc = 'Regex grep term (word/visual) in parent dir' })
+
+-- File search with captured term (glob-aware)
+vim.keymap.set({ 'n', 'x' }, '<leader>saf', function()
+  local term = get_term_from_mode()
+  telescope_files.find_files_with_glob('*.*', term, nil)
+end, { desc = 'Find files (word/visual) in all dirs' })
+
+vim.keymap.set({ 'n', 'x' }, '<leader>sad', function()
+  local term = get_term_from_mode()
+  local current_dir = vim.fn.expand('%:p:h')
+  local dir_name = vim.fn.fnamemodify(current_dir, ':t')
+  local glob = dir_name ~= '' and ('**/' .. dir_name .. '/*.*') or '**/*.*'
+  telescope_files.find_files_with_glob(glob, term, nil)
+end, { desc = 'Find files (word/visual) using current dir glob' })
+
+vim.keymap.set({ 'n', 'x' }, '<leader>sar', function()
+  local term = get_term_from_mode()
+  local current_dir = vim.fn.expand('%:p:h')
+  local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
+  local parent_name = vim.fn.fnamemodify(parent_dir, ':t')
+  local glob = parent_name ~= '' and ('**/' .. parent_name .. '/*.*') or '**/*.*'
+  telescope_files.find_files_with_glob(glob, term, nil)
+end, { desc = 'Find files (word/visual) using parent dir glob' })
 
 -- Fuzzy file search (sl variants)
 local function find_files_with_default(cwd, term)
@@ -265,10 +345,11 @@ vim.keymap.set('n', '<leader>ir', function()
   local search_dir = (parent_dir ~= current_dir and parent_dir ~= '/') and parent_dir or current_dir
   local repo_root = get_repo_root(current_dir)
   local rel = to_relative(search_dir, repo_root)
+  local path_glob = (rel ~= '' and ('**/' .. rel .. '/*.*')) or '**/*.*'
   require('spectre').open_visual({
     select_word = true,
     cwd = repo_root,
-    path = rel .. '/**/*.*',
+    path = path_glob,
   })
 end, { desc = 'Replace word in dir and parent' })
 
@@ -276,10 +357,11 @@ vim.keymap.set('n', '<leader>id', function()
   local current_dir = vim.fn.expand('%:p:h')
   local repo_root = get_repo_root(current_dir)
   local rel = to_relative(current_dir, repo_root)
+  local path_glob = (rel ~= '' and ('**/' .. rel .. '/*.*')) or '**/*.*'
   require('spectre').open_visual({
     select_word = true,
     cwd = repo_root,
-    path = rel .. '/**/*.*',
+    path = path_glob,
   })
 end, { desc = 'Replace word in current directory' })
 
@@ -295,55 +377,6 @@ vim.keymap.set('n', '<leader>in', function()
   require('spectre').open()
 end, { desc = 'Open spectre (no word)' })
 
--- Gitsigns keymaps (loaded after gitsigns loads)
-vim.api.nvim_create_autocmd('User', {
-  pattern = 'GitSignsAttach',
-  callback = function(args)
-    local gitsigns = require('gitsigns')
-    local bufnr = args.buf
-    
-    -- Navigation
-    vim.keymap.set('n', ']c', function()
-      if vim.wo.diff then
-        vim.cmd.normal { ']c', bang = true }
-      else
-        gitsigns.nav_hunk('next')
-      end
-    end, { buffer = bufnr, desc = 'Jump to next git change' })
-    
-    vim.keymap.set('n', '[c', function()
-      if vim.wo.diff then
-        vim.cmd.normal { '[c', bang = true }
-      else
-        gitsigns.nav_hunk('prev')
-      end
-    end, { buffer = bufnr, desc = 'Jump to previous git change' })
-    
-    -- Actions
-    vim.keymap.set('n', '<leader>gh', gitsigns.preview_hunk, { buffer = bufnr, desc = 'Git preview hunk' })
-    vim.keymap.set('n', '<leader>gs', gitsigns.stage_hunk, { buffer = bufnr, desc = 'Git stage hunk' })
-    vim.keymap.set('v', '<leader>gs', function()
-      gitsigns.stage_hunk { vim.fn.line('.'), vim.fn.line('v') }
-    end, { buffer = bufnr, desc = 'Git stage hunk' })
-    vim.keymap.set('n', '<leader>gu', gitsigns.undo_stage_hunk, { buffer = bufnr, desc = 'Git unstage hunk' })
-    vim.keymap.set('n', '<leader>gS', gitsigns.stage_buffer, { buffer = bufnr, desc = 'Git stage buffer' })
-    vim.keymap.set('n', '<leader>gr', gitsigns.reset_hunk, { buffer = bufnr, desc = 'Git reset hunk' })
-    vim.keymap.set('v', '<leader>gr', function()
-      gitsigns.reset_hunk { vim.fn.line('.'), vim.fn.line('v') }
-    end, { buffer = bufnr, desc = 'Git reset hunk' })
-    vim.keymap.set('n', '<leader>gR', gitsigns.reset_buffer, { buffer = bufnr, desc = 'Git reset buffer' })
-    vim.keymap.set('n', '<leader>gb', gitsigns.blame_line, { buffer = bufnr, desc = 'Git blame line' })
-    vim.keymap.set('n', '<leader>gd', gitsigns.diffthis, { buffer = bufnr, desc = 'Git diff against index' })
-    vim.keymap.set('n', '<leader>gD', function()
-      gitsigns.diffthis('@')
-    end, { buffer = bufnr, desc = 'Git diff against last commit' })
-    
-    -- Toggles
-    vim.keymap.set('n', '<leader>tb', gitsigns.toggle_current_line_blame, { buffer = bufnr, desc = 'Toggle git blame line' })
-    vim.keymap.set('n', '<leader>td', gitsigns.toggle_deleted, { buffer = bufnr, desc = 'Toggle git deleted' })
-  end,
-})
-
 -- Neogit keymaps
 vim.keymap.set('n', '<leader>ga', '<cmd>Neogit<cr>', { desc = 'Open Neogit' })
 vim.keymap.set('n', '<leader>gc', '<cmd>Neogit commit<cr>', { desc = 'Neogit commit' })
@@ -356,3 +389,4 @@ vim.keymap.set('n', '<leader>gi', function()
     end
   end)
 end, { desc = 'Interactive rebase' })
+

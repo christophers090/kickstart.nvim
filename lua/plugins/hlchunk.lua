@@ -8,7 +8,6 @@ return {
         delay = 0,
         style = {
           { fg = "#806d9c" },
-          { fg = "#c21f30" },
         },
         chars = {
           horizontal_line = "─",

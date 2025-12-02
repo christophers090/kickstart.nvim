@@ -1,6 +1,6 @@
 local M = {}
 
-local telescope_files = require('utils.telescope_files')
+local search = require('utils.search')
 
 local header_exts = { 'hh', 'h', 'hpp' }
 local impl_exts = { 'cc', 'cpp', 'cxx' }
@@ -12,23 +12,7 @@ for _, ext in ipairs(impl_exts) do impl_set[ext] = true end
 
 local function fallback_to_sr_with_ext(ext_or_list)
   local current_dir = vim.fn.expand('%:p:h')
-  local current_name = vim.fn.fnamemodify(current_dir, ':t')
-  
-  local ext_glob = '*.*'
-  if type(ext_or_list) == 'string' then
-    ext_glob = '*.' .. ext_or_list
-  elseif type(ext_or_list) == 'table' and #ext_or_list > 0 then
-    if #ext_or_list == 1 then
-      ext_glob = '*.' .. ext_or_list[1]
-    else
-      ext_glob = '*.{' .. table.concat(ext_or_list, ',') .. '}'
-    end
-  end
-
-  -- Ensure pattern is recursive by including /**/
-  local glob = '**/' .. ext_glob
-  
-  telescope_files.find_files_with_glob(glob, nil, nil)
+  search.find_files_by_ext(ext_or_list, current_dir)
 end
 
 local function current_file_info()

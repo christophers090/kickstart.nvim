@@ -1,13 +1,9 @@
 local M = {}
-local telescope_files = require('utils.telescope_files')
+local search = require('utils.search')
 
 local function fallback_to_sr_with_ext(ext_to_find)
-  local ext_glob = ext_to_find and ('*.' .. ext_to_find) or '*.*'
-  
-  -- Ensure pattern is recursive by including /**/
-  local glob = '**/' .. ext_glob
-  
-  telescope_files.find_files_with_glob(glob, nil, nil)
+  local current_dir = vim.fn.expand('%:p:h')
+  search.find_files_by_ext(ext_to_find, current_dir)
 end
 
 function M.refresh_compile_commands()
@@ -110,7 +106,7 @@ local function to_relative_dir(path, root)
     if path:sub(offset + 1, offset + 1) == '/' then
       offset = offset + 1
     end
-    local rel = path:sub(offset + 0)
+    local rel = path:sub(offset + 1)
     if rel == '' then return '' end
     return rel
   end
@@ -262,6 +258,35 @@ local function build_label_for_target(build_dir, target_name, repo_root)
   return '//' .. pkg .. ':' .. target_name
 end
 
+local function open_float_terminal_and_paste(cmd, execute)
+  -- Open toggleterm float (same one as <leader>tk) and send command
+  local terms = require('toggleterm.terminal')
+  local term = terms.get(1)  -- Get terminal #1 (default)
+  
+  if not term then
+    -- First time - create and open it
+    vim.cmd('ToggleTerm direction=float')
+    vim.defer_fn(function()
+      local t = terms.get(1)
+      if t and t.job_id then
+        local keys = cmd .. (execute and '\r' or '')
+        vim.api.nvim_chan_send(t.job_id, keys)
+      end
+    end, 150)
+  else
+    -- Terminal exists - open it if closed, then send command
+    if not term:is_open() then
+      term:open()
+    end
+    vim.defer_fn(function()
+      if term.job_id then
+        local keys = cmd .. (execute and '\r' or '')
+        vim.api.nvim_chan_send(term.job_id, keys)
+      end
+    end, 100)
+  end
+end
+
 local function open_split_terminal_and_paste(cmd, execute)
   vim.cmd('split | terminal')
   local keys = cmd .. (execute and '\n' or '')
@@ -269,9 +294,10 @@ local function open_split_terminal_and_paste(cmd, execute)
 end
 
 -- Public: Find the Bazel target for the current file (in current or parent dir),
--- then open a split terminal and paste `bazel build //pkg:target`.
--- mode can be 'build' or 'run'; defaults to 'build'. Per request, both bb/br use build.
-function M.build_current_file_in_terminal(mode)
+-- then open a terminal and paste `bazel build //pkg:target`.
+-- mode can be 'build' or 'run'; defaults to 'build'.
+-- use_float: if true, opens floating terminal; if false, opens split terminal.
+function M.build_current_file_in_terminal(mode, use_float)
   local current_abs = vim.fn.expand('%:p')
   if current_abs == '' then
     print('No file')
@@ -293,7 +319,11 @@ function M.build_current_file_in_terminal(mode)
   local cmd = 'bazel ' .. verb .. ' ' .. label
   -- Execute immediately for build; for run just paste
   local should_execute = (verb == 'build')
-  open_split_terminal_and_paste(cmd, should_execute)
+  if use_float == false then
+    open_split_terminal_and_paste(cmd, should_execute)
+  else
+    open_float_terminal_and_paste(cmd, should_execute)
+  end
 end
 
 return M

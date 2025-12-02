@@ -5,22 +5,6 @@ return {
     priority = 1000,
   },
   {
-    'sainnhe/gruvbox-material',
-    lazy = false,
-    priority = 1000,
-    config = function()
-      vim.g.gruvbox_material_background = 'hard'
-    end,
-  },
-  {
-    'sainnhe/everforest',
-    lazy = false,
-    priority = 1000,
-    config = function()
-      vim.g.everforest_background = 'hard'
-    end,
-  },
-  {
     'shaunsingh/nord.nvim',
     lazy = false,
     priority = 1000,
@@ -31,22 +15,7 @@ return {
     priority = 1000,
   },
   {
-    'xero/miasma.nvim',
-    lazy = false,
-    priority = 1000,
-  },
-  {
     'shaunsingh/moonlight.nvim',
-    lazy = false,
-    priority = 1000,
-  },
-  {
-    'datsfilipe/vesper.nvim',
-    lazy = false,
-    priority = 1000,
-  },
-  {
-    'cryptomilk/nightcity.nvim',
     lazy = false,
     priority = 1000,
   },
@@ -54,21 +23,6 @@ return {
     'sekke276/dark_flat.nvim',
     lazy = false,
     priority = 1000,
-  },
-  -- Retaining Rose Pine as well since it was just configured
-  {
-    'rose-pine/neovim',
-    name = 'rose-pine',
-    priority = 1000,
-    config = function()
-      require('rose-pine').setup {
-        disable_background = true,
-        highlight_groups = {
-          NormalFloat = { bg = "base" },
-          FloatBorder = { fg = "highlight_med", bg = "base" },
-        }
-      }
-    end
   },
 
   {
@@ -82,16 +36,10 @@ return {
       -- Defines the list of themes to cycle through
       local themes = {
         'catppuccin-mocha',
-        'gruvbox-material',
-        'everforest',
         'nord',
         'onenord',
-        'miasma',
         'moonlight',
-        'vesper',
-        'nightcity',
-        'dark_flat', -- Added dark_flat
-        'rose-pine-moon',
+        'dark_flat',
       }
 
       -- State file paths
@@ -165,7 +113,7 @@ return {
       -- Keymaps for Like/Dislike
       
       -- Dislike: Block current theme and rotate to next
-      vim.keymap.set('n', '<leader>td', function()
+      vim.keymap.set('n', '<leader>tD', function()
         local current_theme = vim.g.colors_name
         if not current_theme then return end
         
@@ -187,10 +135,23 @@ return {
       -- Actually, let's interpret "Like" as "Keep this one, don't rotate next time".
       -- But "rotate on startup" is the core feature. 
       -- Let's just print a heart message for now.
-      vim.keymap.set('n', '<leader>tl', function()
+      vim.keymap.set('n', '<leader>tf', function()
         local current_theme = vim.g.colors_name
         vim.notify("❤️ Favorited " .. tostring(current_theme), vim.log.levels.INFO)
-      end, { desc = '[T]heme [L]ike' })
+      end, { desc = '[T]heme [F]avorite' })
+
+      -- Switch to dark_flat theme
+      vim.keymap.set('n', '<leader>tl', function()
+        pcall(vim.cmd.colorscheme, 'dark_flat')
+        vim.notify("Theme: dark_flat", vim.log.levels.INFO)
+      end, { desc = '[T]heme dark_f[L]at' })
+
+      -- Rotate Theme Manually
+      vim.keymap.set('n', '<leader>tr', function()
+        local next_theme = rotate_theme(1)
+        pcall(vim.cmd.colorscheme, next_theme)
+        vim.notify("Rotated to Theme: " .. next_theme, vim.log.levels.INFO)
+      end, { desc = '[T]heme [R]otate' })
 
     end,
   },

@@ -69,24 +69,18 @@ return {
 
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
-      local custom_files = require 'utils.telescope_files'
+      local search = require 'utils.search'
+      local perl = require 'utils.perl'
       
       -- File search
       vim.keymap.set('n', '<leader>sf', function()
-        custom_files.find_files_with_glob('*.*')
+        search.find_files({ glob = '*.*' })
       end, { desc = '[S]earch [F]iles (glob aware: term  glob or just glob)' })
       vim.keymap.set('n', '<leader>sd', function()
-        local current_dir = vim.fn.expand('%:p:h')
-        local dir_name = vim.fn.fnamemodify(current_dir, ':t')
-        local glob = dir_name ~= '' and ('**/' .. dir_name .. '/**/*.*') or '**/*.*'
-        custom_files.find_files_with_glob(glob, nil, nil)
+        search.find_files({ scope = 'current' })
       end, { desc = '[S]earch files in current [D]irectory (prefill recursive glob)' })
       vim.keymap.set('n', '<leader>sr', function()
-        local current_dir = vim.fn.expand('%:p:h')
-        local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
-        local parent_name = vim.fn.fnamemodify(parent_dir, ':t')
-        local glob = parent_name ~= '' and ('**/' .. parent_name .. '/**/*.*') or '**/*.*'
-        custom_files.find_files_with_glob(glob, nil, nil)
+        search.find_files({ scope = 'parent' })
       end, { desc = '[S]earch files in pa[R]ent (prefill recursive glob)' })
       
       -- Grep search (custom bindings defined in lua/config/keymaps.lua)
@@ -139,6 +133,9 @@ return {
       vim.keymap.set('n', '<leader>sn', function()
         builtin.find_files { cwd = vim.fn.stdpath 'config' }
       end, { desc = '[S]earch [N]eovim files' })
+
+      -- Interactive perl regex with live preview
+      vim.keymap.set({ 'n', 'x' }, '<leader>is', perl.run, { desc = '[I]nteractive [S]ubstitute (perl regex)' })
     end,
   },
 }

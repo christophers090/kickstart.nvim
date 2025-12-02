@@ -17,6 +17,7 @@ return {
         changedelete = { text = '┃~' },
       },
       signs_staged_enable = true,
+      linehl = false,
       on_attach = function(bufnr)
         local gitsigns = require('gitsigns')
 
@@ -58,7 +59,18 @@ return {
 
         -- Toggles
         vim.keymap.set('n', '<leader>tb', gitsigns.toggle_current_line_blame, { buffer = bufnr, desc = 'Toggle git blame line' })
-        vim.keymap.set('n', '<leader>td', gitsigns.toggle_deleted, { buffer = bufnr, desc = 'Toggle git deleted' })
+        vim.keymap.set('n', '<leader>td', function()
+          -- Store state in a global variable so it persists across colorscheme changes
+          vim.g.gitsigns_diff_enabled = not vim.g.gitsigns_diff_enabled
+          
+          if vim.g.gitsigns_diff_enabled then
+            gitsigns.toggle_deleted(true)
+            gitsigns.toggle_linehl(true)
+          else
+            gitsigns.toggle_deleted(false)
+            gitsigns.toggle_linehl(false)
+          end
+        end, { buffer = bufnr, desc = 'Toggle git inline diff (deleted & line highlight)' })
       end,
     },
   },

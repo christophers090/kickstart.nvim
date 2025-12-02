@@ -72,6 +72,12 @@ return {
       -- - <leader>ed'   - [E]dit [D]elete [']quotes surround
       -- - <leader>er)'  - [E]dit [R]eplace [)] ['] surround
       require('mini.surround').setup({
+        custom_surroundings = {
+          ['('] = { output = { left = '(', right = ')' } },
+          ['['] = { output = { left = '[', right = ']' } },
+          ['{'] = { output = { left = '{', right = '}' } },
+          ['<'] = { output = { left = '<', right = '>' } },
+        },
         mappings = {
           add = '<leader>ea',
           delete = '<leader>ed',

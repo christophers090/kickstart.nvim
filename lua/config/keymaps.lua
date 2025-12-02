@@ -26,11 +26,17 @@ vim.api.nvim_create_autocmd('User', {
   end,
 })
 
--- Reverse { and } for paragraph/block movement
-vim.keymap.set('n', '}', '{', { desc = 'Move up a block' })
-vim.keymap.set('n', '{', '}', { desc = 'Move down a block' })
-vim.keymap.set('v', '}', '{', { desc = 'Move up a block' })
-vim.keymap.set('v', '{', '}', { desc = 'Move down a block' })
+-- Reverse { and } for paragraph/block movement (Forcefully applied)
+local function set_block_movement()
+  vim.keymap.set({ 'n', 'x', 'o' }, '}', '{', { desc = 'Move up a block', silent = true })
+  vim.keymap.set({ 'n', 'x', 'o' }, '{', '}', { desc = 'Move down a block', silent = true })
+end
+
+set_block_movement()
+
+vim.api.nvim_create_autocmd('VimEnter', {
+  callback = set_block_movement,
+})
 
 -- Disable scroll wheel
 vim.keymap.set('', '<ScrollWheelUp>', '<Nop>')
@@ -101,35 +107,6 @@ vim.api.nvim_create_autocmd('TermOpen', {
   end,
 })
 
--- Open scratch buffer to build commands with vim motions
-vim.keymap.set('n', '<leader>tc', function()
-  -- Create a small split at bottom
-  vim.cmd('split')
-  vim.cmd('resize 5')
-  -- Create scratch buffer
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_set_current_buf(buf)
-  vim.bo.buftype = 'nofile'
-  vim.bo.bufhidden = 'wipe'
-  -- Add instruction
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { '# Build your command here, then <CR> to send to terminal' })
-  vim.cmd('startinsert!')
-  
-  -- Map Enter to send line to terminal and close
-  vim.keymap.set('n', '<CR>', function()
-    local line = vim.api.nvim_get_current_line()
-    if not line:match('^#') and line ~= '' then
-      vim.cmd('close')
-      -- Find terminal window and send command
-      local term_win = vim.fn.win_findbuf(vim.fn.bufnr('#'))[1]
-      if term_win then
-        vim.api.nvim_win_call(term_win, function()
-          vim.api.nvim_feedkeys('i' .. line .. '\n', 'n', false)
-        end)
-      end
-    end
-  end, { buffer = buf })
-end, { desc = '[T]erminal [C]ommand builder' })
 
 -- TIP: Disable arrow keys in normal mode
 vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
@@ -149,6 +126,16 @@ vim.keymap.set('n', '<leader>wh', ':split<CR>', { desc = 'Split horizontally' })
 vim.keymap.set('n', '<leader>wc', ':close<CR>', { desc = 'Close split' })
 vim.keymap.set('n', '<leader>wo', ':only<CR>', { desc = 'Close other splits' })
 
+-- Move to middle of line
+vim.keymap.set('n', 'm', function()
+  local line = vim.api.nvim_get_current_line()
+  if line == "" then return end
+  local start_col = line:find("%S") or 1
+  local end_col = #line
+  local middle_col = math.floor((start_col + end_col) / 2)
+  vim.api.nvim_win_set_cursor(0, { vim.fn.line('.'), middle_col - 1 })
+end, { desc = 'Go to middle of code on line' })
+
 local cpp = require 'utils.cpp'
 vim.keymap.set('n', '<leader>ui', cpp.open_header_from_context, { desc = 'Open header/impl based on context' })
 vim.keymap.set('n', '<leader>uc', cpp.open_cpp_from_context, { desc = 'Open C++ implementation from context' })
@@ -160,11 +147,17 @@ local bazel = require 'utils.bazel'
 vim.keymap.set('n', '<leader>bg', bazel.refresh_compile_commands, { desc = '[B]azel [G]enerate compile_commands.json' })
 vim.keymap.set('n', '<leader>uf', bazel.open_build_file, { desc = 'Open BUILD.bazel file' })
 vim.keymap.set('n', '<leader>bb', function()
-  bazel.build_current_file_in_terminal('build')
-end, { desc = '[B]azel [B]uild current file target' })
+  bazel.build_current_file_in_terminal('build', true)
+end, { desc = '[B]azel [B]uild current file target (float)' })
 vim.keymap.set('n', '<leader>br', function()
-  bazel.build_current_file_in_terminal('run')
-end, { desc = '[B]azel [R]un current file target (pasted only)' })
+  bazel.build_current_file_in_terminal('run', true)
+end, { desc = '[B]azel [R]un current file target (float)' })
+vim.keymap.set('n', '<leader>blb', function()
+  bazel.build_current_file_in_terminal('build', false)
+end, { desc = '[B]azel [L]ine [B]uild current file target (split)' })
+vim.keymap.set('n', '<leader>blr', function()
+  bazel.build_current_file_in_terminal('run', false)
+end, { desc = '[B]azel [L]ine [R]un current file target (split)' })
 -- LSP
 vim.keymap.set('n', '<leader>ch', vim.lsp.buf.hover, { desc = '[C]ode [H]over documentation' })
 vim.keymap.set('n', '<leader>cf', function()
@@ -175,33 +168,25 @@ end, { desc = '[C]ode [F]ormat buffer' })
 local new_file = require 'utils.new_file'
 vim.keymap.set('n', '<leader>fn', new_file.create_new_file, { desc = 'Create a new file' })
 
--- Custom grep with glob pattern support
-local telescope_grep = require 'utils.telescope_grep'
-local telescope_files = require 'utils.telescope_files'
+-- Unified search module
+local search = require 'utils.search'
+
 vim.keymap.set('n', '<leader>sl', function()
-  local current_dir = vim.fn.expand('%:p:h')
-  telescope_grep.live_grep_with_glob_in_dir(current_dir)
-end, { desc = '[S]earch by grep with glob in current dir ([L]ocal)' })
+  search.grep({ scope = 'current' })
+end, { desc = '[S]earch by grep in current dir ([L]ocal)' })
 
 -- Quick grep with pre-filled globs
 vim.keymap.set('n', '<leader>sj', function()
-  telescope_grep.regex_live_grep_with_glob('*.*')
-end, { desc = 'Regex grep with all files glob' })
+  search.grep({ glob = '*.*' })
+end, { desc = 'Grep with all files glob' })
 
 vim.keymap.set('n', '<leader>sk', function()
-  local current_dir = vim.fn.expand('%:p:h')
-  local dir_name = vim.fn.fnamemodify(current_dir, ':t')
-  local glob = dir_name ~= '' and ('**/' .. dir_name .. '/*.*') or '**/*.*'
-  telescope_grep.regex_live_grep_with_glob(glob)
-end, { desc = 'Regex grep in current directory (recursive)' })
+  search.grep({ scope = 'current' })
+end, { desc = 'Grep in current directory (recursive)' })
 
 vim.keymap.set('n', '<leader>su', function()
-  local current_dir = vim.fn.expand('%:p:h')
-  local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
-  local parent_name = vim.fn.fnamemodify(parent_dir, ':t')
-  local glob = parent_name ~= '' and ('**/' .. parent_name .. '/*.*') or '**/*.*'
-  telescope_grep.regex_live_grep_with_glob(glob)
-end, { desc = 'Regex grep in parent directory' })
+  search.grep({ scope = 'parent' })
+end, { desc = 'Grep in parent directory' })
 
 -- Utilities to capture search term
 local function get_visual_selection_text()
@@ -225,126 +210,71 @@ end
 -- Prefill with word under cursor or visual selection
 vim.keymap.set({ 'n', 'x' }, '<leader>saj', function()
   local term = get_term_from_mode()
-  telescope_grep.regex_live_grep_with_glob('*.*', term)
-end, { desc = 'Regex grep term (word/visual) in all files' })
+  search.grep({ glob = '*.*', term = term })
+end, { desc = 'Grep term (word/visual) in all files' })
 
 vim.keymap.set({ 'n', 'x' }, '<leader>sak', function()
   local term = get_term_from_mode()
-  local current_dir = vim.fn.expand('%:p:h')
-  local dir_name = vim.fn.fnamemodify(current_dir, ':t')
-  local glob = dir_name ~= '' and ('**/' .. dir_name .. '/*.*') or '**/*.*'
-  telescope_grep.regex_live_grep_with_glob(glob, term)
-end, { desc = 'Regex grep term (word/visual) in current dir (recursive)' })
+  search.grep({ scope = 'current', term = term })
+end, { desc = 'Grep term (word/visual) in current dir (recursive)' })
 
 vim.keymap.set({ 'n', 'x' }, '<leader>sau', function()
   local term = get_term_from_mode()
-  local current_dir = vim.fn.expand('%:p:h')
-  local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
-  local parent_name = vim.fn.fnamemodify(parent_dir, ':t')
-  local glob = parent_name ~= '' and ('**/' .. parent_name .. '/*.*') or '**/*.*'
-  telescope_grep.regex_live_grep_with_glob(glob, term)
-end, { desc = 'Regex grep term (word/visual) in parent dir' })
+  search.grep({ scope = 'parent', term = term })
+end, { desc = 'Grep term (word/visual) in parent dir' })
 
 -- File search with captured term (glob-aware)
 vim.keymap.set({ 'n', 'x' }, '<leader>saf', function()
   local term = get_term_from_mode()
-  telescope_files.find_files_with_glob('*.*', term, nil)
+  search.find_files({ glob = '*.*', term = term })
 end, { desc = 'Find files (word/visual) in all dirs' })
 
 vim.keymap.set({ 'n', 'x' }, '<leader>sad', function()
   local term = get_term_from_mode()
-  local current_dir = vim.fn.expand('%:p:h')
-  local dir_name = vim.fn.fnamemodify(current_dir, ':t')
-  local glob = dir_name ~= '' and ('**/' .. dir_name .. '/*.*') or '**/*.*'
-  telescope_files.find_files_with_glob(glob, term, nil)
-end, { desc = 'Find files (word/visual) using current dir glob' })
+  search.find_files({ scope = 'current', term = term })
+end, { desc = 'Find files (word/visual) in current dir' })
 
 vim.keymap.set({ 'n', 'x' }, '<leader>sar', function()
   local term = get_term_from_mode()
-  local current_dir = vim.fn.expand('%:p:h')
-  local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
-  local parent_name = vim.fn.fnamemodify(parent_dir, ':t')
-  local glob = parent_name ~= '' and ('**/' .. parent_name .. '/*.*') or '**/*.*'
-  telescope_files.find_files_with_glob(glob, term, nil)
-end, { desc = 'Find files (word/visual) using parent dir glob' })
+  search.find_files({ scope = 'parent', term = term })
+end, { desc = 'Find files (word/visual) in parent dir' })
 
--- Fuzzy file search (sl variants)
-local function find_files_with_default(cwd, term)
-  local builtin = require('telescope.builtin')
-  builtin.find_files({ cwd = cwd, default_text = term, hidden = true })
-end
-
+-- Fuzzy file search (sl variants) - using Telescope builtin for simple fuzzy
 vim.keymap.set('n', '<leader>slj', function()
-  find_files_with_default(nil, nil)
+  require('telescope.builtin').find_files({ hidden = true })
 end, { desc = 'Fuzzy files (workspace)' })
 
 vim.keymap.set('n', '<leader>slk', function()
-  local current_dir = vim.fn.expand('%:p:h')
-  find_files_with_default(current_dir, nil)
+  require('telescope.builtin').find_files({ cwd = search.get_current_dir(), hidden = true })
 end, { desc = 'Fuzzy files (current dir)' })
 
 vim.keymap.set('n', '<leader>slu', function()
-  local current_dir = vim.fn.expand('%:p:h')
-  local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
-  find_files_with_default(parent_dir, nil)
+  require('telescope.builtin').find_files({ cwd = search.get_parent_dir(), hidden = true })
 end, { desc = 'Fuzzy files (parent dir)' })
 
 -- Add word/visual term to fuzzy filename search
 vim.keymap.set({ 'n', 'x' }, '<leader>slaj', function()
   local term = get_term_from_mode()
-  find_files_with_default(nil, term)
+  require('telescope.builtin').find_files({ default_text = term, hidden = true })
 end, { desc = 'Fuzzy files with term (workspace)' })
 
 vim.keymap.set({ 'n', 'x' }, '<leader>slak', function()
   local term = get_term_from_mode()
-  local current_dir = vim.fn.expand('%:p:h')
-  find_files_with_default(current_dir, term)
+  require('telescope.builtin').find_files({ cwd = search.get_current_dir(), default_text = term, hidden = true })
 end, { desc = 'Fuzzy files with term (current dir)' })
 
 vim.keymap.set({ 'n', 'x' }, '<leader>slau', function()
   local term = get_term_from_mode()
-  local current_dir = vim.fn.expand('%:p:h')
-  local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
-  find_files_with_default(parent_dir, term)
+  require('telescope.builtin').find_files({ cwd = search.get_parent_dir(), default_text = term, hidden = true })
 end, { desc = 'Fuzzy files with term (parent dir)' })
 
--- Helpers: repository root detection and relative path construction
-local function get_repo_root(start_dir)
-  -- Prefer git worktree/toplevel; robust with worktrees
-  local out = vim.fn.systemlist({ 'git', '-C', start_dir, 'rev-parse', '--show-toplevel' })
-  if vim.v.shell_error == 0 and out and out[1] and out[1] ~= '' then
-    return out[1]
-  end
-  -- Fallback to Bazel WORKSPACE if present
-  local ws = vim.fn.findfile('WORKSPACE', start_dir .. ';')
-  if ws ~= '' then
-    return vim.fn.fnamemodify(ws, ':h')
-  end
-  -- Fallback to current working directory
-  return vim.fn.getcwd()
-end
-
-local function to_relative(path, root)
-  if not path or not root then return path end
-  -- Normalize trailing slash handling
-  if path:sub(1, #root) == root then
-    local offset = #root
-    if path:sub(offset + 1, offset + 1) == '/' then
-      offset = offset + 1
-    end
-    return path:sub(offset + 0)
-  end
-  -- Last resort: make relative to current cwd
-  return vim.fn.fnamemodify(path, ':.')
-end
-
--- Spectre keymaps
+-- Spectre keymaps (using search module for repo root)
 vim.keymap.set('n', '<leader>ir', function()
   local current_dir = vim.fn.expand('%:p:h')
   local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
   local search_dir = (parent_dir ~= current_dir and parent_dir ~= '/') and parent_dir or current_dir
-  local repo_root = get_repo_root(current_dir)
-  local rel = to_relative(search_dir, repo_root)
+  local repo_root = search.get_repo_root(current_dir)
+  local rel = search_dir:sub(#repo_root + 2) -- Strip repo root prefix
   local path_glob = (rel ~= '' and ('**/' .. rel .. '/*.*')) or '**/*.*'
   require('spectre').open_visual({
     select_word = true,
@@ -355,8 +285,8 @@ end, { desc = 'Replace word in dir and parent' })
 
 vim.keymap.set('n', '<leader>id', function()
   local current_dir = vim.fn.expand('%:p:h')
-  local repo_root = get_repo_root(current_dir)
-  local rel = to_relative(current_dir, repo_root)
+  local repo_root = search.get_repo_root(current_dir)
+  local rel = current_dir:sub(#repo_root + 2) -- Strip repo root prefix
   local path_glob = (rel ~= '' and ('**/' .. rel .. '/*.*')) or '**/*.*'
   require('spectre').open_visual({
     select_word = true,

@@ -53,6 +53,49 @@ local function to_fuzzy_regex(term)
 end
 
 -------------------------------------------------------------------------------
+-- Cheatsheet UI
+-------------------------------------------------------------------------------
+
+local function show_cheatsheet()
+  local buf = vim.api.nvim_create_buf(false, true)
+  
+  -- Fixed layout 4 cols
+  local lines = {
+    " Regex Cheatsheet (RG & Perl)",
+    " ─────────────────────────────────────────────────────────────────────────────────────────────",
+    "  .   Any char           *   Zero or more       ^   Start of line      \\   Escape",
+    "  \\d  Digit [0-9]        +   One or more        $   End of line        |   Or",
+    "  \\w  Word char          ?   Zero or one        ()  Group              []  Class",
+    "  \\s  Whitespace         {}  {n,m} count        (?! ) Neg Lookahead    [^] Neg Class",
+  }
+
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  
+  local width = 96 -- Fixed width that fits the content
+  local height = #lines
+  local col = math.floor((vim.o.columns - width) / 2)
+  
+  local win = vim.api.nvim_open_win(buf, false, {
+    relative = 'editor',
+    row = vim.o.lines - height - 2,
+    col = col,
+    width = width,
+    height = height,
+    style = 'minimal',
+    border = 'rounded',
+    focusable = false,
+    zindex = 150, -- Above Telescope (usually 50-100)
+  })
+  return win
+end
+
+local function close_cheatsheet(win)
+  if win and vim.api.nvim_win_is_valid(win) then
+    vim.api.nvim_win_close(win, true)
+  end
+end
+
+-------------------------------------------------------------------------------
 -- Directory Resolution
 -------------------------------------------------------------------------------
 
@@ -135,6 +178,7 @@ local function make_rg_grep_finder(make_entry, glob_pattern, cwd, use_fuzzy)
       '--column',
       '--smart-case',
       '--hidden',
+      '--pcre2', -- Enable PCRE2 for lookaheads
     }
     local normalized = normalize_glob(glob_pattern)
     if normalized and normalized ~= '' then
@@ -179,6 +223,7 @@ end
     term: string - Pre-filled search term
     scope: string - 'current', 'parent', 'root' - builds glob with directory name
     ext: string - Extension pattern for scope (default: "*.*")
+    cwd: string - Directory to search in (absolute path)
     title: string - Custom picker title
 ]]
 function M.find_files(opts)
@@ -195,10 +240,14 @@ function M.find_files(opts)
   
   local default_term = opts.term
   local current_glob = default_glob
+  local cwd = opts.cwd
 
-  local finder = make_rg_files_finder(make_entry, default_glob, nil)
+  local finder = make_rg_files_finder(make_entry, default_glob, cwd)
 
   local title = opts.title or 'Find Files'
+
+  -- Show cheatsheet and get window ID
+  local cheatsheet_win = show_cheatsheet()
 
   pickers
     .new({}, {
@@ -206,10 +255,25 @@ function M.find_files(opts)
       finder = finder,
       previewer = conf.file_previewer({}),
       sorter = conf.generic_sorter({}),
+      layout_strategy = 'horizontal',
+      layout_config = {
+        height = 0.80,
+        width = 0.95,
+        anchor = 'N', -- Anchor to top to leave space at bottom
+      },
       default_text = (default_term and default_glob) and (default_term .. '  ' .. default_glob)
         or (default_glob and ('  ' .. default_glob))
         or (default_term or nil),
       attach_mappings = function(prompt_bufnr, map)
+        -- Close cheatsheet when prompt buffer closes
+        vim.api.nvim_create_autocmd('BufWinLeave', {
+          buffer = prompt_bufnr,
+          callback = function()
+            close_cheatsheet(cheatsheet_win)
+          end,
+          once = true,
+        })
+
         if default_glob and not default_term then
           vim.defer_fn(function()
             vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Home>', true, false, true), 'n', false)
@@ -221,7 +285,7 @@ function M.find_files(opts)
         local term, glob = parse_prompt(prompt)
         if glob ~= current_glob then
           current_glob = glob
-          return { prompt = term, updated_finder = make_rg_files_finder(make_entry, glob, nil) }
+          return { prompt = term, updated_finder = make_rg_files_finder(make_entry, glob, cwd) }
         end
         return { prompt = term }
       end,
@@ -237,6 +301,7 @@ end
     term: string - Pre-filled search term
     scope: string - 'current', 'parent', 'root' - builds glob with directory name
     ext: string - Extension pattern for scope (default: "*.*")
+    cwd: string - Directory to search in (absolute path)
     fuzzy: boolean - Use fuzzy matching (default: false)
     title: string - Custom picker title
 ]]
@@ -255,10 +320,14 @@ function M.grep(opts)
   local default_term = opts.term
   local use_fuzzy = opts.fuzzy or false
   local current_glob = default_glob
+  local cwd = opts.cwd
 
-  local finder = make_rg_grep_finder(make_entry, default_glob, nil, use_fuzzy)
+  local finder = make_rg_grep_finder(make_entry, default_glob, cwd, use_fuzzy)
 
   local title = opts.title or (use_fuzzy and 'Fuzzy Grep' or 'Live Grep')
+
+  -- Show cheatsheet and get window ID
+  local cheatsheet_win = show_cheatsheet()
 
   pickers
     .new({}, {
@@ -266,10 +335,25 @@ function M.grep(opts)
       finder = finder,
       previewer = conf.grep_previewer({}),
       sorter = require('telescope.sorters').empty(),
+      layout_strategy = 'horizontal',
+      layout_config = {
+        height = 0.80,
+        width = 0.95,
+        anchor = 'N', -- Anchor to top to leave space at bottom
+      },
       default_text = (default_term and default_glob) and (default_term .. '  ' .. default_glob)
         or (default_glob and ('  ' .. default_glob))
         or (default_term or nil),
       attach_mappings = function(prompt_bufnr, map)
+        -- Close cheatsheet when prompt buffer closes
+        vim.api.nvim_create_autocmd('BufWinLeave', {
+          buffer = prompt_bufnr,
+          callback = function()
+            close_cheatsheet(cheatsheet_win)
+          end,
+          once = true,
+        })
+
         if default_glob and not default_term then
           vim.defer_fn(function()
             vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Home>', true, false, true), 'n', false)
@@ -281,7 +365,7 @@ function M.grep(opts)
         local term, glob = parse_prompt(prompt)
         if glob ~= current_glob then
           current_glob = glob
-          return { prompt = term, updated_finder = make_rg_grep_finder(make_entry, glob, nil, use_fuzzy) }
+          return { prompt = term, updated_finder = make_rg_grep_finder(make_entry, glob, cwd, use_fuzzy) }
         end
         return { prompt = term }
       end,

@@ -129,10 +129,6 @@ return {
         }
       end, { desc = '[S]earch [/] in Open Files' })
 
-      -- Shortcut for searching your Neovim configuration files
-      vim.keymap.set('n', '<leader>sn', function()
-        builtin.find_files { cwd = vim.fn.stdpath 'config' }
-      end, { desc = '[S]earch [N]eovim files' })
 
       -- Interactive perl regex with live preview
       vim.keymap.set({ 'n', 'x' }, '<leader>is', perl.run, { desc = '[I]nteractive [S]ubstitute (perl regex)' })

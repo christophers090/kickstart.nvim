@@ -268,6 +268,19 @@ vim.keymap.set({ 'n', 'x' }, '<leader>slau', function()
   require('telescope.builtin').find_files({ cwd = search.get_parent_dir(), default_text = term, hidden = true })
 end, { desc = 'Fuzzy files with term (parent dir)' })
 
+-- Bazel-bin search
+vim.keymap.set('n', '<leader>sb', function()
+  local repo_root = search.get_repo_root(vim.fn.getcwd())
+  local bazel_bin = repo_root .. '/bazel-bin'
+  search.find_files({ cwd = bazel_bin, glob = '*.*', title = 'Find Files (bazel-bin)' })
+end, { desc = '[S]earch files in [B]azel-bin' })
+
+vim.keymap.set('n', '<leader>sn', function()
+  local repo_root = search.get_repo_root(vim.fn.getcwd())
+  local bazel_bin = repo_root .. '/bazel-bin'
+  search.grep({ cwd = bazel_bin, glob = '*.*', title = 'Grep (bazel-bin)' })
+end, { desc = '[S]earch (grep) in bazel-bi[N]' })
+
 -- Spectre keymaps (using search module for repo root)
 vim.keymap.set('n', '<leader>ir', function()
   local current_dir = vim.fn.expand('%:p:h')

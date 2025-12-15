@@ -4,6 +4,20 @@
 local M = {}
 
 -------------------------------------------------------------------------------
+-- Feature Detection
+-------------------------------------------------------------------------------
+
+-- Check if ripgrep has PCRE2 support (cached)
+local _has_pcre2 = nil
+local function has_pcre2()
+  if _has_pcre2 == nil then
+    local result = vim.fn.system('rg --pcre2-version 2>/dev/null')
+    _has_pcre2 = vim.v.shell_error == 0 and result ~= ''
+  end
+  return _has_pcre2
+end
+
+-------------------------------------------------------------------------------
 -- Helpers
 -------------------------------------------------------------------------------
 
@@ -104,17 +118,20 @@ end
 -- Cheatsheet UI
 -------------------------------------------------------------------------------
 
-local CHEATSHEET_LINES = {
-  " Regex & Ripgrep Cheatsheet                                                      Always on: --smart-case --hidden --pcre2",
-  " ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────",
-  "  .   Any char           *   Zero or more       ^   Start of line      \\   Escape            -w   Word only          -A N  Lines after",
-  "  \\d  Digit [0-9]        +   One or more        $   End of line        |   Or                -F   Literal string     -B N  Lines before",
-  "  \\w  Word char          ?   Zero or one        ()  Group              []  Class             -v   Invert match       -C N  Context lines",
-  "  \\s  Whitespace         {}  {n,m} count        (?! ) Neg Lookahead    [^] Neg Class         -u   Unrestricted       -U    Multiline",
-  "  \\n  Newline            .*  Match any          (?= ) Pos Lookahead    \\b  Word boundary     -t   File type          -g    Glob filter",
-}
+local function get_cheatsheet_lines()
+  local pcre2_text = has_pcre2() and " --pcre2" or ""
+  return {
+    " Regex & Ripgrep Cheatsheet                                                      Always on: --smart-case --hidden" .. pcre2_text,
+    " ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────",
+    "  .   Any char           *   Zero or more       ^   Start of line      \\   Escape            -w   Word only          -A N  Lines after",
+    "  \\d  Digit [0-9]        +   One or more        $   End of line        |   Or                -F   Literal string     -B N  Lines before",
+    "  \\w  Word char          ?   Zero or one        ()  Group              []  Class             -v   Invert match       -C N  Context lines",
+    "  \\s  Whitespace         {}  {n,m} count        (?! ) Neg Lookahead    [^] Neg Class         -u   Unrestricted       -U    Multiline",
+    "  \\n  Newline            .*  Match any          (?= ) Pos Lookahead    \\b  Word boundary     -t   File type          -g    Glob filter",
+  }
+end
 local CHEATSHEET_WIDTH = 144
-local CHEATSHEET_HEIGHT = #CHEATSHEET_LINES
+local CHEATSHEET_HEIGHT = 7  -- Number of lines in cheatsheet
 
 -------------------------------------------------------------------------------
 -- Tunable Layout Parameters
@@ -124,16 +141,18 @@ local RESULTS_PREVIEW_WIDTH = 190  -- Total width of results + preview windows c
 local function show_cheatsheet()
   local buf = vim.api.nvim_create_buf(false, true)
   
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, CHEATSHEET_LINES)
+  local lines = get_cheatsheet_lines()
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   
+  local height = #lines
   local col = math.floor((vim.o.columns - CHEATSHEET_WIDTH) / 2)
   
   local win = vim.api.nvim_open_win(buf, false, {
     relative = 'editor',
-    row = vim.o.lines - CHEATSHEET_HEIGHT - 2,
+    row = vim.o.lines - height - 2,
     col = col,
     width = CHEATSHEET_WIDTH,
-    height = CHEATSHEET_HEIGHT,
+    height = height,
     style = 'minimal',
     border = 'rounded',
     focusable = false,
@@ -298,8 +317,12 @@ local function make_rg_grep_finder(make_entry, glob_pattern, cwd, use_fuzzy)
       '--column',
       '--smart-case',
       '--hidden',
-      '--pcre2', -- Enable PCRE2 for lookaheads
     }
+    
+    -- Add PCRE2 if available (enables lookaheads, etc.)
+    if has_pcre2() then
+      table.insert(args, '--pcre2')
+    end
 
     -- Add default glob if provided (via scoped search)
     local normalized = normalize_glob(glob_pattern)

@@ -95,7 +95,6 @@ vim.keymap.set('n', '<leader>z', ':ZenMode<CR>', { desc = 'Toggle ZenMode' })
 vim.keymap.set('n', '<leader>tm', ':terminal<CR>', { desc = 'Open terminal' })
 vim.keymap.set('n', '<leader>te', ':vsplit | terminal<CR>', { desc = 'Open terminal in vertical split' })
 vim.keymap.set('n', '<leader>th', ':split | terminal<CR>', { desc = 'Open terminal in horizontal split' })
-vim.keymap.set('n', '<leader>ca', ':CodeCompanion', { desc = 'Open a chat' })
 
 -- Exit terminal mode with double Esc
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
@@ -163,10 +162,6 @@ vim.keymap.set('n', '<leader>ch', vim.lsp.buf.hover, { desc = '[C]ode [H]over do
 vim.keymap.set('n', '<leader>cf', function()
   require('conform').format({ async = true, lsp_format = 'fallback' })
 end, { desc = '[C]ode [F]ormat buffer' })
-
--- Telescope
-local new_file = require 'utils.new_file'
-vim.keymap.set('n', '<leader>fn', new_file.create_new_file, { desc = 'Create a new file' })
 
 -- Unified search module
 local search = require 'utils.search'
@@ -280,45 +275,6 @@ vim.keymap.set('n', '<leader>sn', function()
   local bazel_bin = repo_root .. '/bazel-bin'
   search.grep({ cwd = bazel_bin, glob = '*.*', title = 'Grep (bazel-bin)' })
 end, { desc = '[S]earch (grep) in bazel-bi[N]' })
-
--- Spectre keymaps (using search module for repo root)
-vim.keymap.set('n', '<leader>ir', function()
-  local current_dir = vim.fn.expand('%:p:h')
-  local parent_dir = vim.fn.fnamemodify(current_dir, ':h')
-  local search_dir = (parent_dir ~= current_dir and parent_dir ~= '/') and parent_dir or current_dir
-  local repo_root = search.get_repo_root(current_dir)
-  local rel = search_dir:sub(#repo_root + 2) -- Strip repo root prefix
-  local path_glob = (rel ~= '' and ('**/' .. rel .. '/*.*')) or '**/*.*'
-  require('spectre').open_visual({
-    select_word = true,
-    cwd = repo_root,
-    path = path_glob,
-  })
-end, { desc = 'Replace word in dir and parent' })
-
-vim.keymap.set('n', '<leader>id', function()
-  local current_dir = vim.fn.expand('%:p:h')
-  local repo_root = search.get_repo_root(current_dir)
-  local rel = current_dir:sub(#repo_root + 2) -- Strip repo root prefix
-  local path_glob = (rel ~= '' and ('**/' .. rel .. '/*.*')) or '**/*.*'
-  require('spectre').open_visual({
-    select_word = true,
-    cwd = repo_root,
-    path = path_glob,
-  })
-end, { desc = 'Replace word in current directory' })
-
-vim.keymap.set('n', '<leader>if', function()
-  require('spectre').open_visual({ select_word = true })
-end, { desc = 'Replace word (global)' })
-
-vim.keymap.set('n', '<leader>iw', function()
-  require('spectre').open_file_search({ select_word = true })
-end, { desc = 'Replace word in current file' })
-
-vim.keymap.set('n', '<leader>in', function()
-  require('spectre').open()
-end, { desc = 'Open spectre (no word)' })
 
 -- Neogit keymaps
 vim.keymap.set('n', '<leader>ga', '<cmd>Neogit<cr>', { desc = 'Open Neogit' })

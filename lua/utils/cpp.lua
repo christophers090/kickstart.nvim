@@ -117,23 +117,6 @@ local function open_bazel_in_dir(dir)
   return false
 end
 
-function M.toggle_header_impl()
-  local info = current_file_info()
-  if not info then
-    fallback_to_sr_with_ext(header_exts) -- Default to header if unknown
-    return
-  end
-  if not (header_set[info.ext] or impl_set[info.ext]) then
-    fallback_to_sr_with_ext(header_exts) -- Default to header if not C++
-    return
-  end
-  if header_set[info.ext] then
-    open_with_exts(info.dir, info.stem, impl_exts, 'implementation')
-  else
-    open_with_exts(info.dir, info.stem, header_exts, 'header')
-  end
-end
-
 function M.open_cpp_from_context()
   local info = current_file_info()
   if not info then

@@ -1,53 +1,12 @@
 local M = {}
 local search = require('utils.search')
 
+-- Keep Bazel output isolated from the generic terminal (ID 1) and Claude (ID 99).
+local BAZEL_TOGGLETERM_ID = 2
+
 local function fallback_to_sr_with_ext(ext_to_find)
   local current_dir = vim.fn.expand('%:p:h')
   search.find_files_by_ext(ext_to_find, current_dir)
-end
-
-function M.refresh_compile_commands()
-  -- Check if we're in a Bazel project
-  local workspace_file = vim.fn.findfile('WORKSPACE', '.;')
-  if workspace_file == '' then
-    print('Not in a Bazel project (no WORKSPACE file found)')
-    return
-  end
-  
-  -- Run the hedron compile commands refresh
-  print('Refreshing compile_commands.json...')
-  vim.fn.jobstart('bazel run @hedron_compile_commands//:refresh_all', {
-    on_exit = function(_, exit_code)
-      if exit_code == 0 then
-        print('compile_commands.json refreshed successfully')
-        -- Restart clangd to pick up the new compile commands
-        vim.cmd('LspRestart clangd')
-        -- Also clear the clangd cache
-        vim.fn.system('rm -rf ~/.cache/clangd')
-        print('Cleared clangd cache')
-      else
-        print('Failed to refresh compile_commands.json (exit code: ' .. exit_code .. ')')
-      end
-    end,
-    on_stdout = function(_, data)
-      if data then
-        for _, line in ipairs(data) do
-          if line ~= '' then
-            print(line)
-          end
-        end
-      end
-    end,
-    on_stderr = function(_, data)
-      if data then
-        for _, line in ipairs(data) do
-          if line ~= '' then
-            print(line)
-          end
-        end
-      end
-    end,
-  })
 end
 
 function M.open_build_file()
@@ -258,16 +217,102 @@ local function build_label_for_target(build_dir, target_name, repo_root)
   return '//' .. pkg .. ':' .. target_name
 end
 
+function M.refresh_compile_commands()
+  local start_dir = vim.fn.expand('%:p:h')
+  if start_dir == '' then
+    start_dir = vim.fn.getcwd()
+  end
+
+  local workspace_file = vim.fn.findfile('WORKSPACE', start_dir .. ';')
+  if workspace_file == '' then
+    print('Not in a Bazel project (no WORKSPACE file found)')
+    return
+  end
+
+  if vim.fn.isdirectory('/mnt/data/output') == 0 then
+    pcall(vim.fn.mkdir, '/mnt/data/output', 'p')
+  end
+
+  local repo_root = vim.fn.fnamemodify(workspace_file, ':h')
+
+  local function print_data(data)
+    if not data then
+      return
+    end
+    for _, line in ipairs(data) do
+      if line ~= '' then
+        print(line)
+      end
+    end
+  end
+
+  local function run_refresh()
+    print('Refreshing compile_commands.json...')
+    vim.fn.jobstart({ 'bazel', 'run', '@hedron_compile_commands//:refresh_all' }, {
+      cwd = repo_root,
+      on_exit = function(_, exit_code)
+        if exit_code == 0 then
+          print('compile_commands.json refreshed successfully')
+        else
+          print('Failed to refresh compile_commands.json (exit code: ' .. exit_code .. ')')
+        end
+      end,
+      on_stdout = function(_, data)
+        print_data(data)
+      end,
+      on_stderr = function(_, data)
+        print_data(data)
+      end,
+    })
+  end
+
+  local current_abs = vim.fn.expand('%:p')
+  if current_abs == '' then
+    run_refresh()
+    return
+  end
+
+  local build_dir, build_file = find_build_file_dir_for_current_or_parent()
+  if not build_dir then
+    run_refresh()
+    return
+  end
+
+  local target = find_target_in_build(build_file, current_abs, build_dir)
+  if not target or target == '' then
+    run_refresh()
+    return
+  end
+
+  local label = build_label_for_target(build_dir, target, get_repo_root(build_dir))
+  print('Building ' .. label .. '...')
+  vim.fn.jobstart({ 'bazel', 'build', label }, {
+    cwd = repo_root,
+    on_exit = function(_, exit_code)
+      if exit_code ~= 0 then
+        print('Bazel build failed (exit code: ' .. exit_code .. ')')
+      end
+      run_refresh()
+    end,
+    on_stdout = function(_, data)
+      print_data(data)
+    end,
+    on_stderr = function(_, data)
+      print_data(data)
+    end,
+  })
+end
+
 local function open_float_terminal_and_paste(cmd, execute)
-  -- Open toggleterm float (same one as <leader>tk) and send command
+  -- Open a dedicated toggleterm float for Bazel and send the command.
   local terms = require('toggleterm.terminal')
-  local term = terms.get(1)  -- Get terminal #1 (default)
+  local term = terms.get(BAZEL_TOGGLETERM_ID)
   
   if not term then
     -- First time - create and open it
-    vim.cmd('ToggleTerm direction=float')
+    vim.cmd(BAZEL_TOGGLETERM_ID .. 'ToggleTerm direction=float')
     vim.defer_fn(function()
-      local t = terms.get(1)
+      local t = terms.get(BAZEL_TOGGLETERM_ID)
       if t and t.job_id then
         local keys = cmd .. (execute and '\r' or '')
         vim.api.nvim_chan_send(t.job_id, keys)

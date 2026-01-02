@@ -163,6 +163,20 @@ vim.keymap.set('n', '<leader>cf', function()
   require('conform').format({ async = true, lsp_format = 'fallback' })
 end, { desc = '[C]ode [F]ormat buffer' })
 
+-- Cursor (editor) helpers
+vim.keymap.set('n', '<leader>cu', function()
+  if vim.fn.executable('cursor') ~= 1 then
+    vim.notify('cursor CLI not found in PATH', vim.log.levels.ERROR)
+    return
+  end
+
+  -- Equivalent to: cursor . &
+  local job_id = vim.fn.jobstart({ 'cursor', vim.fn.getcwd() }, { detach = true })
+  if job_id <= 0 then
+    vim.notify('Failed to launch cursor', vim.log.levels.ERROR)
+  end
+end, { desc = '[C]ursor: open in current working directory' })
+
 -- Unified search module
 local search = require 'utils.search'
 

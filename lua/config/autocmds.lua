@@ -38,8 +38,32 @@ vim.api.nvim_create_autocmd('TermLeave', {
 -- Automatically enter insert mode when focusing a terminal buffer or opening one
 vim.api.nvim_create_autocmd({ 'BufEnter', 'TermOpen' }, {
   pattern = { 'term://*' },
-  callback = function()
-    vim.cmd('startinsert')
+  callback = function(args)
+    -- Avoid forcing insert mode when a terminal is spawned in the background
+    -- (e.g. ToggleTerm's `Terminal:spawn()` used for pre-warming).
+    if vim.bo[args.buf].buftype ~= 'terminal' then
+      return
+    end
+
+    -- Only enter insert mode if the terminal buffer is actually displayed in a
+    -- window (background-spawned terminals have no windows).
+    if vim.api.nvim_get_current_buf() ~= args.buf then
+      return
+    end
+    if #vim.fn.win_findbuf(args.buf) == 0 then
+      return
+    end
+
+    -- Defer to let buffer switching complete, then re-verify we're still in the terminal
+    vim.schedule(function()
+      local current_buf = vim.api.nvim_get_current_buf()
+      local current_ft = vim.bo[current_buf].filetype
+      -- Don't enter insert if we've switched away or we're on dashboard/special buffers
+      if current_buf ~= args.buf or current_ft == 'alpha' then
+        return
+      end
+      vim.cmd('startinsert')
+    end)
   end,
 })
 

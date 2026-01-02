@@ -191,6 +191,27 @@ return {
         --     return util.root_pattern('WORKSPACE', 'BUILD.bazel', '.git')(fname)
         --   end,
         -- },
+        clangd = {
+          cmd = (function()
+            local clangd_path = vim.fn.stdpath('data') .. '/mason/bin/clangd'
+            if vim.fn.executable(clangd_path) ~= 1 then
+              clangd_path = vim.fn.exepath('clangd')
+              if clangd_path == '' then
+                clangd_path = 'clangd'
+              end
+            end
+            return {
+              clangd_path,
+              '--background-index',
+              '--clang-tidy=false',
+              '--header-insertion=never',
+            }
+          end)(),
+          root_dir = function(fname)
+            local util = require('lspconfig').util
+            return util.root_pattern('WORKSPACE', 'WORKSPACE.bazel', 'BUILD.bazel', 'compile_commands.json', '.git')(fname)
+          end,
+        },
         -- gopls = {},
         basedpyright = {},
         -- rust_analyzer = {},
@@ -236,6 +257,7 @@ return {
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
         'black', -- Used to format Python code
+        'shfmt', -- Used to format shell scripts
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -281,6 +303,9 @@ return {
       formatters_by_ft = {
         lua = { 'stylua' },
         python = { 'black' },
+        sh = { 'shfmt' },
+        bash = { 'shfmt' },
+        zsh = { 'shfmt' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --

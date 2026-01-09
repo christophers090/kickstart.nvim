@@ -119,9 +119,9 @@ end
 -------------------------------------------------------------------------------
 
 local function get_cheatsheet_lines()
-  local pcre2_text = has_pcre2() and " --pcre2" or ""
+  local pcre2_hint = has_pcre2() and " (add --pcre2 for lookaheads)" or ""
   return {
-    " Regex & Ripgrep Cheatsheet                                                      Always on: --smart-case --hidden" .. pcre2_text,
+    " Regex & Ripgrep Cheatsheet                                                      Always on: --smart-case --hidden" .. pcre2_hint,
     " ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────",
     "  .   Any char           *   Zero or more       ^   Start of line      \\   Escape            -w   Word only          -A N  Lines after",
     "  \\d  Digit [0-9]        +   One or more        $   End of line        |   Or                -F   Literal string     -B N  Lines before",
@@ -132,6 +132,7 @@ local function get_cheatsheet_lines()
 end
 local CHEATSHEET_WIDTH = 144
 local CHEATSHEET_HEIGHT = 7  -- Number of lines in cheatsheet
+local MIN_SEARCH_LENGTH = 4  -- Minimum chars before searching (short queries are slow)
 
 -------------------------------------------------------------------------------
 -- Tunable Layout Parameters
@@ -289,6 +290,10 @@ local function make_rg_files_finder(make_entry, glob_pattern, cwd)
       '--files',
       '--hidden',
       '--color=never',
+      '-g', '!.git/',          -- Exclude .git directory
+      '-g', '!bazel-*/',       -- Exclude bazel output directories
+      '-g', '!node_modules/',
+      '-g', '!.cache/',
     }
     local normalized = normalize_glob(glob_pattern)
     if normalized and normalized ~= '' then
@@ -308,6 +313,14 @@ local function make_rg_grep_finder(make_entry, glob_pattern, cwd, use_fuzzy)
       return nil
     end
 
+    -- Extract just the search term (ignore flags like -g, -w, etc.)
+    local search_term = search:gsub('%s*%-[%w]%s*"[^"]*"', ''):gsub('%s*%-[%w]%s*%S+', ''):gsub('%s*%-%-[%w-]+', '')
+    search_term = vim.trim(search_term)
+
+    if #search_term < MIN_SEARCH_LENGTH then
+      return nil  -- Don't search until we have enough characters
+    end
+
     local args = {
       'rg',
       '--color=never',
@@ -317,12 +330,16 @@ local function make_rg_grep_finder(make_entry, glob_pattern, cwd, use_fuzzy)
       '--column',
       '--smart-case',
       '--hidden',
+      '-g', '!.git/',          -- Exclude .git directory
+      '-g', '!bazel-*/',       -- Exclude bazel output directories (bazel-bin, bazel-out, etc)
+      '-g', '!node_modules/',
+      '-g', '!.cache/',
+      '-g', '!*.min.js',
+      '-g', '!*.min.css',
     }
-    
-    -- Add PCRE2 if available (enables lookaheads, etc.)
-    if has_pcre2() then
-      table.insert(args, '--pcre2')
-    end
+
+    -- NOTE: PCRE2 disabled for performance - enable with --pcre2 in prompt if needed
+    -- PCRE2 is significantly slower and causes lag during live typing
 
     -- Add default glob if provided (via scoped search)
     local normalized = normalize_glob(glob_pattern)
@@ -389,19 +406,33 @@ function M.find_files(opts)
   local conf = require('telescope.config').values
   local make_entry = require('telescope.make_entry')
 
-  -- Build glob from scope if provided, otherwise use explicit glob
-  local default_glob = opts.glob
-  if opts.scope and not default_glob then
-    default_glob = build_scope_glob(opts.scope, opts.ext)
+  -- Use cwd for directory scoping (fast) instead of glob patterns (slow)
+  local cwd = opts.cwd
+  if opts.scope and not cwd then
+    cwd = M.resolve_dir(opts.scope)
   end
-  
+
+  -- Only use glob for extension filtering, not directory filtering
+  local default_glob = opts.glob
+  if opts.ext and not default_glob then
+    default_glob = '*.' .. opts.ext
+  end
+
   local default_term = opts.term
   local current_glob = default_glob
-  local cwd = opts.cwd
 
   local finder = make_rg_files_finder(make_entry, default_glob, cwd)
 
-  local title = opts.title or 'Find Files'
+  -- Build title showing search location
+  local title = opts.title
+  if not title then
+    if cwd then
+      local dir_name = vim.fn.fnamemodify(cwd, ':t')
+      title = 'Find Files [' .. dir_name .. ']'
+    else
+      title = 'Find Files'
+    end
+  end
 
   -- Show cheatsheet and get window ID
   local cheatsheet_win = show_cheatsheet()
@@ -412,6 +443,7 @@ function M.find_files(opts)
       finder = finder,
       previewer = conf.file_previewer({}),
       sorter = conf.generic_sorter({}),
+      debounce = 100,  -- Wait 100ms after typing stops before searching
       layout_strategy = 'search_layout',
       layout_config = {
         height = 0.80,
@@ -469,19 +501,34 @@ function M.grep(opts)
   local conf = require('telescope.config').values
   local make_entry = require('telescope.make_entry')
 
-  -- Build glob from scope if provided, otherwise use explicit glob
+  -- Use cwd for directory scoping (fast) instead of glob patterns (slow)
+  local cwd = opts.cwd
+  if opts.scope and not cwd then
+    cwd = M.resolve_dir(opts.scope)
+  end
+
+  -- Only use glob for extension filtering, not directory filtering
   local default_glob = opts.glob
-  if opts.scope and not default_glob then
-    default_glob = build_scope_glob(opts.scope, opts.ext)
+  if opts.ext and not default_glob then
+    default_glob = '*.' .. opts.ext
   end
 
   local default_term = opts.term
   local use_fuzzy = opts.fuzzy or false
-  local cwd = opts.cwd  -- Only use cwd if explicitly passed
 
   local finder = make_rg_grep_finder(make_entry, nil, cwd, use_fuzzy)
 
-  local title = opts.title or (use_fuzzy and 'Fuzzy Grep' or 'Live Grep')
+  -- Build title showing search location
+  local title = opts.title
+  if not title then
+    local base_title = use_fuzzy and 'Fuzzy Grep' or 'Live Grep'
+    if cwd then
+      local dir_name = vim.fn.fnamemodify(cwd, ':t')
+      title = base_title .. ' [' .. dir_name .. ']'
+    else
+      title = base_title
+    end
+  end
 
   -- Build default text in rg native format
   local default_text = nil
@@ -493,7 +540,7 @@ function M.grep(opts)
     default_text = default_term
   end
 
-  -- Show cheatsheet and get window ID
+  -- Show cheatsheet
   local cheatsheet_win = show_cheatsheet()
 
   pickers
@@ -502,6 +549,7 @@ function M.grep(opts)
       finder = finder,
       previewer = conf.grep_previewer({}),
       sorter = require('telescope.sorters').empty(),
+      debounce = 300,  -- Wait 300ms after typing stops before searching
       layout_strategy = 'search_layout',
       layout_config = {
         height = 0.80,

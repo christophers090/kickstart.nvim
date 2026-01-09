@@ -178,40 +178,26 @@ return {
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
         -- clangd = {
-        --   cmd = {
-        --     'clangd',
-        --     '--background-index',
-        --     '--query-driver=/usr/bin/g++,/usr/bin/gcc,/usr/bin/clang++,/usr/bin/clang',
-        --     '--header-insertion=never',
-        --     '--compile-commands-dir=.',
-        --   },
+        --   cmd = (function()
+        --     local clangd_path = vim.fn.stdpath('data') .. '/mason/bin/clangd'
+        --     if vim.fn.executable(clangd_path) ~= 1 then
+        --       clangd_path = vim.fn.exepath('clangd')
+        --       if clangd_path == '' then
+        --         clangd_path = 'clangd'
+        --       end
+        --     end
+        --     return {
+        --       clangd_path,
+        --       '--background-index',
+        --       '--clang-tidy=false',
+        --       '--header-insertion=never',
+        --     }
+        --   end)(),
         --   root_dir = function(fname)
         --     local util = require('lspconfig').util
-        --     -- Always use workspace root for consistent indexing
-        --     return util.root_pattern('WORKSPACE', 'BUILD.bazel', '.git')(fname)
+        --     return util.root_pattern('WORKSPACE', 'WORKSPACE.bazel', 'BUILD.bazel', 'compile_commands.json', '.git')(fname)
         --   end,
         -- },
-        clangd = {
-          cmd = (function()
-            local clangd_path = vim.fn.stdpath('data') .. '/mason/bin/clangd'
-            if vim.fn.executable(clangd_path) ~= 1 then
-              clangd_path = vim.fn.exepath('clangd')
-              if clangd_path == '' then
-                clangd_path = 'clangd'
-              end
-            end
-            return {
-              clangd_path,
-              '--background-index',
-              '--clang-tidy=false',
-              '--header-insertion=never',
-            }
-          end)(),
-          root_dir = function(fname)
-            local util = require('lspconfig').util
-            return util.root_pattern('WORKSPACE', 'WORKSPACE.bazel', 'BUILD.bazel', 'compile_commands.json', '.git')(fname)
-          end,
-        },
         -- gopls = {},
         basedpyright = {},
         -- rust_analyzer = {},

@@ -244,6 +244,7 @@ return {
         'stylua', -- Used to format Lua code
         'black', -- Used to format Python code
         'shfmt', -- Used to format shell scripts
+        'clang-format', -- Used to format C/C++ code
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -292,6 +293,12 @@ return {
         sh = { 'shfmt' },
         bash = { 'shfmt' },
         zsh = { 'shfmt' },
+        c = { 'clang_format' },
+        cpp = { 'clang_format' },
+        objc = { 'clang_format' },
+        objcpp = { 'clang_format' },
+        cuda = { 'clang_format' },
+        proto = { 'clang_format' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --

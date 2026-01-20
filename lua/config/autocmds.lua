@@ -10,28 +10,53 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
--- Force relative line numbers everywhere
-vim.api.nvim_create_autocmd({ 'BufEnter', 'BufWinEnter', 'WinEnter', 'TermOpen' }, {
+local function set_terminal_window_opts(buf)
+  -- Buffer-local (safe even when the terminal is spawned without a window)
+  pcall(function()
+    vim.bo[buf].scrollback = 5000
+  end)
+
+  -- Window-local (apply to every window currently displaying the buffer)
+  for _, win in ipairs(vim.fn.win_findbuf(buf)) do
+    vim.wo[win].number = false
+    vim.wo[win].relativenumber = false
+    vim.wo[win].signcolumn = 'no'
+    vim.wo[win].cursorline = false
+    vim.wo[win].list = false
+    vim.wo[win].spell = false
+    vim.wo[win].foldcolumn = '0'
+    vim.wo[win].colorcolumn = ''
+  end
+end
+
+-- Terminal performance: keep terminal windows cheap to redraw
+vim.api.nvim_create_autocmd({ 'TermOpen', 'BufWinEnter' }, {
+  desc = 'Terminal: set fast window-local options',
+  group = vim.api.nvim_create_augroup('terminal-performance', { clear = true }),
+  pattern = { 'term://*' },
+  callback = function(args)
+    if vim.bo[args.buf].buftype ~= 'terminal' then
+      return
+    end
+    set_terminal_window_opts(args.buf)
+  end,
+})
+
+-- Force relative line numbers everywhere (except terminals/floats)
+vim.api.nvim_create_autocmd({ 'BufEnter', 'BufWinEnter', 'WinEnter' }, {
   desc = 'Enable relative line numbers everywhere',
   group = vim.api.nvim_create_augroup('force-relative-numbers', { clear = true }),
   callback = function()
+    local buf = vim.api.nvim_get_current_buf()
+    if vim.bo[buf].buftype == 'terminal' then
+      return
+    end
+    local win = vim.api.nvim_get_current_win()
+    if vim.api.nvim_win_get_config(win).relative ~= '' then
+      return
+    end
     vim.wo.number = true
     vim.wo.relativenumber = true
-  end,
-})
-
--- Show relative line numbers in terminal normal mode
-vim.api.nvim_create_autocmd('TermEnter', {
-  callback = function()
-    vim.wo.relativenumber = false
-    vim.wo.number = false
-  end,
-})
-
-vim.api.nvim_create_autocmd('TermLeave', {
-  callback = function()
-    vim.wo.relativenumber = true
-    vim.wo.number = true
   end,
 })
 
